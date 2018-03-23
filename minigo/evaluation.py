@@ -81,10 +81,12 @@ def play_match(black_net, white_net, games, readouts, sgf_dir, verbosity):
                                                   white_name=white_name)
                     _file.write(sgfstr)
                 print("Finished game", i, active.result_string)
-                if active.result_string[0] is 'B':
-                    black_win_counts += 1
-                elif active.result_string[0] is 'W':
-                    white_win_counts += 1
+                if active.result_string is not None:
+                    if active.result_string[0] is 'B':
+                        black_win_counts += 1
+                    elif active.result_string[0] is 'W':
+                        white_win_counts += 1
+
                 break
 
             move = active.pick_move()
@@ -101,4 +103,5 @@ def play_match(black_net, white_net, games, readouts, sgf_dir, verbosity):
                                                                    readouts,
                                                                    timeper,
                                                                    dur))
-    return 'B' if black_win_counts >= white_win_counts else 'W'
+
+    return 'B' if (black_win_counts - white_win_counts) > 0.55 * games else 'W'
