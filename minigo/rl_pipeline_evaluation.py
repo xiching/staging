@@ -49,6 +49,9 @@ ESTIMATOR_WORKING_DIR = os.path.join(BASE_DIR, 'estimator_working_dir')
 # How many games before the selfplay workers will stop trying to play more.
 MAX_GAMES_PER_GENERATION = 10
 
+# How many generations before the selfplay workers will stop trying to play more.
+MAX_GENERATIONS_PER_PIPELINE = 5
+
 # What percent of games to holdout from training per generation
 HOLDOUT_PCT = 0.05
 
@@ -234,7 +237,7 @@ def rl_loop():
     print("Playing some games...")
 
     model_name = '000000-bootstrap'
-    for rl_iter in range(5):
+    for rl_iter in range(MAX_GENERATIONS_PER_PIPELINE):
         print("RL_iteration: {}".format(rl_iter))
 
         while True:

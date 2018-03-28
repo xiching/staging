@@ -242,4 +242,3 @@ if __name__ == '__main__':
     fh.setFormatter(formatter)
     log.addHandler(fh)
     rl_loop()
-
