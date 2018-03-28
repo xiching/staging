@@ -196,16 +196,6 @@ def rl_loop():
     all default parameters.
     """
 
-        # monkeypatch the hyperparams so that we get a quickly executing network.
-    dual_net.get_default_hyperparams = lambda **kwargs: {
-        'k': 8, 'fc_width': 16, 'num_shared_layers': 1, 'l2_strength': 1e-4, 'momentum': 0.9}
-
-    dual_net.TRAIN_BATCH_SIZE = 16
-    dual_net.EXAMPLES_PER_GENERATION = 64
-
-    #monkeypatch the shuffle buffer size so we don't spin forever shuffling up positions.
-    preprocessing.SHUFFLE_BUFFER_SIZE = 1000
-
     print("Creating random initial weights...")
     bootstrap()
 
