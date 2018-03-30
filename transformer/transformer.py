@@ -18,6 +18,7 @@ Transformer model code source: https://github.com/tensorflow/tensor2tensor"""
 
 import argparse
 import math
+import os
 from six.moves import xrange
 import sys
 
@@ -582,40 +583,35 @@ def main(_):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument(
-      '--data_dir',
-      type=str,
-      default='',
-      help='Directory for where the translate_ende_wmt32k dataset is saved.')
+      '--data_dir', '-dd', type=str,
+      default=os.path.expanduser('~/data/translate_ende'),
+      help='[default: %(default)s] Directory for where the '
+           'translate_ende_wmt32k dataset is saved.',
+      metavar='<DD>')
   parser.add_argument(
-      '--model_dir',
-      type=str,
-      default='/tmp/transformer_model',
-      metavar='N',
-      help='Directory to save Transformer model training checkpoints')
+      '--model_dir', '-md', type=str, default='/tmp/transformer_model',
+      help='[default: %(default)s] Directory to save Transformer model '
+           'training checkpoints',
+      metavar='<MD>')
   parser.add_argument(
-      '--num_cpu_cores',
-      type=int,
-      default=4,
-      metavar='N',
-      help='Number of CPU cores to use in the input pipeline.')
+      '--num_cpu_cores', '-nc', type=int, default=4,
+      help='[default: %(default)s] Number of CPU cores to use in the input '
+           'pipeline.',
+      metavar='<NC>')
   parser.add_argument(
-      '--training_steps',
-      type=int,
-      default=250000,
-      metavar='N',
-      help='Total number of training steps.')
+      '--training_steps', '-ts', type=int, default=250000,
+      help='[default: %(default)s] Total number of training steps.',
+      metavar='<TS>')
   parser.add_argument(
-      '--eval_interval',
-      type=int,
-      default=1000,
-      metavar='N',
-      help='Number of training steps to run between evaluations.')
+      '--eval_interval', '-ei', type=int, default=1000,
+      help='[default: %(default)s] Number of training steps to run between '
+           'evaluations.',
+      metavar='<EI>',)
   parser.add_argument(
-      '--params',
-      type=str,
-      default='base',
-      choices=['base', 'big'],
-      help='Parameter set to use when creating and training the model.')
+      '--params', '-p', type=str, default='base', choices=['base', 'big'],
+      help='[default: %(default)s] Parameter set to use when creating and '
+           'training the model.',
+      metavar='<P>')
 
   FLAGS, unparsed = parser.parse_known_args()
   tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)

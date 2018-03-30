@@ -56,9 +56,6 @@ import os
 
 import tensorflow as tf
 
-# File name constants
-
-
 # Use the number of training files as the shuffle buffer.
 FILE_SHUFFLE_BUFFER = 100
 # Buffer size for reading records from a TFRecord file. Each training file is

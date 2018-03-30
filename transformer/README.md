@@ -8,40 +8,60 @@ Transformer's overall structure follows the standard encoder-decoder pattern. Th
 The model also applies embeddings on the input and output tokens, and adds a constant positional encoding. The positional encoding adds information about the position of each token.
 
 ## Training the model
-1. **Data download**
-
-   Follow  the first part of [tensor2tensor's walkthrough](https://github.com/tensorflow/tensor2tensor#walkthrough) to download the translate_ende_wmt32k dataset.
-
+1. **Download and preprocess data**
    ```
-   pip install tensor2tensor
-
-   PROBLEM=translate_ende_wmt32k
-   MODEL=transformer
-   HPARAMS=transformer_base_single_gpu
-
-   DATA_DIR=$HOME/t2t_data
-   TMP_DIR=/tmp/t2t_datagen
-   TRAIN_DIR=$HOME/t2t_train/$PROBLEM/$MODEL-$HPARAMS
-
-   mkdir -p $DATA_DIR $TMP_DIR $TRAIN_DIR
-
-   # Generate data
-   t2t-datagen \
-     --data_dir=$DATA_DIR \
-     --tmp_dir=$TMP_DIR \
-     --problem=$PROBLEM
+   data_download.py
    ```
+   Args:
+    * `--data_dir`: `~/data/translate_ende` by default. Path TFRecord data, and vocab file will be saved.
+    * `--raw_data`: `/tmp/translate_ende_raw` by default. Path where the raw data will be downloaded and extracted if not already there.
+   ---
+   The data is downloaded from the Workshop of Machine Transtion (WMT) [news translation task](http://www.statmt.org/wmt17/translation-task.html). The following datasets are used:
 
-2. **Training**
+   * Europarl v7
+   * Common Crawl corpus
+   * News Commentary v12
 
-   Run `transformer.py`.
+   See the [download section](http://www.statmt.org/wmt17/translation-task.html#download) to explore the raw datasets.
+
+   The parameters in this model are tuned to fit the English-German translation data, so the EN-DE texts are extracted from the downloaded compressed files.
+
+
+2. **Run model training and evaluation**
    ```
-   transformer.py --data_dir=$DATA_DIR
+   transformer.py
    ```
-   The `--data_dir` argument should be set to the same directory where the dataset was downloaded.
+   Args:
+   * `--data_dir`: `~/data/translate_ende` by default. This should be set to the same directory where the dataset was downloaded.
+   * `--model_dir`: `/tmp/transformer_model` by default. Directory to save Transformer model training checkpoints.
+   * `--num_cpu_cores`: 4 by default. Number of CPU cores to use in the input pipeline.
+   * `--training_step`: 250000 by default. Total number of training steps.
+   * `--eval_interval`: 1000 by default. Number of training steps to run between evaluations.
+   * `--params`: Parameter set to use when creating and training the model. Options are `base` (default) and `big`.
+
+3. **Translate using the model**
+   (TODO)
+
+4. **Compute BLEU score**
+   (TODO)
 
 ## Benchmarks
 (TODO)
 
-## Predictions and BLEU score
-(TODO)
+## Implementation overview
+
+A brief look at each component in the code:
+1. **Data download**
+   * `data_download.py`: Downloads and extracts data, then uses `Subtokenizer` to tokenize strings into arrays of int IDs. The int arrays are converted to `tf.Examples` and saved in the `tf.RecordDataset` format.
+   * `tokenizer.py`: Defines the `Subtokenizer` class. During initialization, the raw data is used to generate a vocabulary list containing common subtokens* that appear in the input data. This vocabulary list stays static through training, evaluation, and inference.
+
+2. **Model training and evaluation**
+   * `transformer.py`: defines the model, and creates an `estimator` to train and evaluate the model.
+   * `dataset.py`: contains functions for creating a `dataset` that is passed to the `estimator`
+
+3. **Inference with trained model**
+   * `translate.py`: First, uses `Subtokenizer` to tokenize the input. The vocabulary file is the same used to tokenize the training/eval files. Second, uses beam search to find the combination of tokens that maximizes the probability outputted by the model decoder. The tokens are then converted back to strings with `Subtokenizer`.
+
+**Subtoken**: Words are referred as tokens, and parts of words are referred as 'subtokens'. For example, the word 'inclined' may be split into `['incline', 'd_']`. The '_' indicates the end of the token. The subtoken vocabulary list is guaranteed to contain the alphabet (including numbers and special characters), so all words can be tokenized.
+
+
