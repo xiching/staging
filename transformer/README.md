@@ -15,17 +15,6 @@ The model also applies embeddings on the input and output tokens, and adds a con
    Args:
     * `--data_dir`: `~/data/translate_ende` by default. Path TFRecord data, and vocab file will be saved.
     * `--raw_data`: `/tmp/translate_ende_raw` by default. Path where the raw data will be downloaded and extracted if not already there.
-   ---
-   The data is downloaded from the Workshop of Machine Transtion (WMT) [news translation task](http://www.statmt.org/wmt17/translation-task.html). The following datasets are used:
-
-   * Europarl v7
-   * Common Crawl corpus
-   * News Commentary v12
-
-   See the [download section](http://www.statmt.org/wmt17/translation-task.html#download) to explore the raw datasets.
-
-   The parameters in this model are tuned to fit the English-German translation data, so the EN-DE texts are extracted from the downloaded compressed files.
-
 
 2. **Run model training and evaluation**
 
@@ -53,6 +42,17 @@ The model also applies embeddings on the input and output tokens, and adds a con
 A brief look at each component in the code:
 1. **Data download**
    * [`data_download.py`](data_download.py): Downloads and extracts data, then uses `Subtokenizer` to tokenize strings into arrays of int IDs. The int arrays are converted to `tf.Examples` and saved in the `tf.RecordDataset` format.
+
+     The data is downloaded from the Workshop of Machine Transtion (WMT) [news translation task](http://www.statmt.org/wmt17/translation-task.html). The following datasets are used:
+
+     * Europarl v7
+     * Common Crawl corpus
+     * News Commentary v12
+
+     See the [download section](http://www.statmt.org/wmt17/translation-task.html#download) to explore the raw datasets.
+
+     The parameters in this model are tuned to fit the English-German translation data, so the EN-DE texts are extracted from the downloaded compressed files.
+
    * [`tokenizer.py`](tokenizer.py): Defines the `Subtokenizer` class. During initialization, the raw data is used to generate a vocabulary list containing common subtokens* that appear in the input data. This vocabulary list stays static through training, evaluation, and inference.
 
 2. **Model training and evaluation**
