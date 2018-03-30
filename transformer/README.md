@@ -9,9 +9,9 @@ The model also applies embeddings on the input and output tokens, and adds a con
 
 ## Training the model
 1. **Download and preprocess data**
-   ```
-   data_download.py
-   ```
+
+   Run [`data_download.py`](data_download.py)
+
    Args:
     * `--data_dir`: `~/data/translate_ende` by default. Path TFRecord data, and vocab file will be saved.
     * `--raw_data`: `/tmp/translate_ende_raw` by default. Path where the raw data will be downloaded and extracted if not already there.
@@ -28,11 +28,11 @@ The model also applies embeddings on the input and output tokens, and adds a con
 
 
 2. **Run model training and evaluation**
-   ```
-   transformer.py
-   ```
+
+   Run [`transformer.py`](transformer.py)
+
    Args:
-   * `--data_dir`: `~/data/translate_ende` by default. This should be set to the same directory where the dataset was downloaded.
+   * `--data_dir`: `~/data/translate_ende` by default. This should be set to the same directory where the dataset was downloaded and preprocessed.
    * `--model_dir`: `/tmp/transformer_model` by default. Directory to save Transformer model training checkpoints.
    * `--num_cpu_cores`: 4 by default. Number of CPU cores to use in the input pipeline.
    * `--training_step`: 250000 by default. Total number of training steps.
@@ -52,15 +52,18 @@ The model also applies embeddings on the input and output tokens, and adds a con
 
 A brief look at each component in the code:
 1. **Data download**
-   * `data_download.py`: Downloads and extracts data, then uses `Subtokenizer` to tokenize strings into arrays of int IDs. The int arrays are converted to `tf.Examples` and saved in the `tf.RecordDataset` format.
-   * `tokenizer.py`: Defines the `Subtokenizer` class. During initialization, the raw data is used to generate a vocabulary list containing common subtokens* that appear in the input data. This vocabulary list stays static through training, evaluation, and inference.
+   * [`data_download.py`](data_download.py): Downloads and extracts data, then uses `Subtokenizer` to tokenize strings into arrays of int IDs. The int arrays are converted to `tf.Examples` and saved in the `tf.RecordDataset` format.
+   * [`tokenizer.py`](tokenizer.py): Defines the `Subtokenizer` class. During initialization, the raw data is used to generate a vocabulary list containing common subtokens* that appear in the input data. This vocabulary list stays static through training, evaluation, and inference.
 
 2. **Model training and evaluation**
-   * `transformer.py`: defines the model, and creates an `estimator` to train and evaluate the model.
-   * `dataset.py`: contains functions for creating a `dataset` that is passed to the `estimator`
+   * [`transformer.py`](transformer.py): defines the model, and creates an `estimator` to train and evaluate the model.
+   * [`dataset.py`](dataset.py): contains functions for creating a `dataset` that is passed to the `estimator`
 
 3. **Inference with trained model**
-   * `translate.py`: First, uses `Subtokenizer` to tokenize the input. The vocabulary file is the same used to tokenize the training/eval files. Second, uses beam search to find the combination of tokens that maximizes the probability outputted by the model decoder. The tokens are then converted back to strings with `Subtokenizer`.
+   * [`translate.py`](translate.py): First, uses `Subtokenizer` to tokenize the input. The vocabulary file is the same used to tokenize the training/eval files. Second, uses beam search to find the combination of tokens that maximizes the probability outputted by the model decoder. The tokens are then converted back to strings with `Subtokenizer`.
+
+4. **BLEU computation**
+   * [`compute_bleu.py`](compute_bleu.py): (TODO)
 
 **Subtoken**: Words are referred as tokens, and parts of words are referred as 'subtokens'. For example, the word 'inclined' may be split into `['incline', 'd_']`. The '_' indicates the end of the token. The subtoken vocabulary list is guaranteed to contain the alphabet (including numbers and special characters), so all words can be tokenized.
 
