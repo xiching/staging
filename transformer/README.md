@@ -44,7 +44,8 @@ The model also applies embeddings on the input and output tokens, and adds a con
    The values are displayed at [localhost:6006].
 
 3. **Translate using the model**
-   (TODO)
+
+   Run `translate.py --`
 
 4. **Compute official BLEU score**
    (TODO)
@@ -82,6 +83,6 @@ A brief look at each component in the code:
 4. **BLEU computation**
    * [`compute_bleu.py`](compute_bleu.py): (TODO)
 
-**Subtoken**: Words are referred as tokens, and parts of words are referred as 'subtokens'. For example, the word 'inclined' may be split into `['incline', 'd_']`. The '\_' indicates the end of the token. The subtoken vocabulary list is guaranteed to contain the alphabet (including numbers and special characters), so all words can be tokenized.
+**\*Subtoken**: Words are referred as tokens, and parts of words are referred as 'subtokens'. For example, the word 'inclined' may be split into `['incline', 'd_']`. The '\_' indicates the end of the token. The subtoken vocabulary list is guaranteed to contain the alphabet (including numbers and special characters), so all words can be tokenized.
 
 
