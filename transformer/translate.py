@@ -8,9 +8,9 @@ import model_params
 import tokenizer
 import transformer
 
-_BATCH_SIZE = 32
+_DECODE_BATCH_SIZE = 32
 _EXTRA_DECODE_LENGTH = 100
-_BEAM_SIZE = 3
+_BEAM_SIZE = 4
 _ALPHA = 0.6
 
 def _get_sorted_inputs(filename):
@@ -22,7 +22,7 @@ def _get_sorted_inputs(filename):
     Sorted list of inputs, and dictionary mapping original index->sorted index
     of each element.
   """
-  with tf.gfile.Open(filename, 'r') as f:
+  with tf.gfile.Open(filename) as f:
     records = f.read().split('\n')
     inputs = [record.strip() for record in records]
     if not inputs[-1]:
@@ -39,65 +39,85 @@ def _get_sorted_inputs(filename):
   return sorted_inputs, sorted_keys
 
 
-
 def _encode_and_add_eos(line, subtokenizer):
-  return subtokenizer.encode(line).append(tokenizer.EOS_ID)
+  """Encode line with subtokenizer, and add EOS id to the end."""
+  return subtokenizer.encode(line) + [tokenizer.EOS_ID]
 
 
-def translate_file(subtokenizer, input_file, output_file=None):
-  output_writer = None
+def translate_file(estimator, subtokenizer, input_file, output_file=None):
+  batch_size = _DECODE_BATCH_SIZE
+
+  # Read and sort inputs by length. Keep dictionary (original index-->new index
+  # in sorted list) to write translations in the original order.
+  sorted_inputs, sorted_keys = _get_sorted_inputs(input_file)
+  num_decode_batches = (len(sorted_inputs) - 1) // batch_size + 1
+
+  def input_generator():
+    """Yield encoded strings from sorted_inputs."""
+    for i, line in enumerate(sorted_inputs):
+      if i % batch_size == 0:
+        batch_num = (i // batch_size) + 1
+        print("="*100)
+        print("Decoding batch %d out of %d" % (batch_num, num_decode_batches))
+        print("="*100)
+      yield _encode_and_add_eos(line, subtokenizer)
+
+  def input_fn():
+    """Created batched dataset of encoded inputs."""
+    ds = tf.data.Dataset.from_generator(
+        input_generator, tf.int64, tf.TensorShape([None]))
+    ds = ds.padded_batch(batch_size, [None])
+    return ds.make_one_shot_iterator().get_next()
+
+  translations = []
+  for i, prediction in enumerate(estimator.predict(input_fn)):
+    #TODO: trim decoded string
+    translation = subtokenizer.decode(prediction['outputs'])
+    translations.append(translation)
+
+    print("Translating:")
+    print("\tInput: %s" % sorted_inputs[i])
+    print("\tOutput: %s\n" % translation)
+
+  # Write translations in the order they appeared in the original file.
   if output_file is not None:
     if tf.gfile.IsDirectory(output_file):
       tf.logging.error('File output is a directory, will not save outputs '
                        'to file.')
     else:
-      output_writer = tf.gfile.Open(output_file, 'w')
-
-  sorted_inputs, sorted_keys = _get_sorted_inputs(input_file)
-  num_decode_batches = (len(sorted_inputs) - 1) // _BATCH_SIZE + 1
-
-  ds = tf.data.Dataset.from_tensor_slices(sorted_inputs)
-  ds = ds.map(lambda line: _encode_and_add_eos(line, subtokenizer))
-  ds = ds.batch(_BATCH_SIZE)
-
-  if output_writer is not None:
-    output_writer.close()
+      tf.logging.info('Writing to file %s' % output_file)
+      with tf.gfile.Open(output_file, 'w') as f:
+        for index in range(len(sorted_keys)):
+          f.write('%s\n' % translations[sorted_keys[index]])
 
 
 def translate_text(estimator, subtokenizer, txt):
-  subtokenizer = tokenizer.Subtokenizer(
-      os.path.join(FLAGS.data_dir, tokenizer.VOCAB_FILE))
-  txt = subtokenizer.encode(txt)
-  txt.append(tokenizer.EOS_ID)
+  encoded_txt = _encode_and_add_eos(txt, subtokenizer)
+
   def input_fn():
-    ds = tf.data.Dataset.from_tensor_slices([txt,txt])
-    ds = ds.batch(_BATCH_SIZE)
+    ds = tf.data.Dataset.from_tensors(encoded_txt)
+    ds = ds.batch(_DECODE_BATCH_SIZE)
     return ds.make_one_shot_iterator().get_next()
 
-  '''
-  with tf.Session() as sess:
-    x = input_fn()
-    print(sess.run(x))
-  '''
-  for x in estimator.predict(input_fn=input_fn):
-    print x, ':)'
-    print subtokenizer.decode(x['outputs'])
-    break
+  predictions = estimator.predict(input_fn)
+  translation = next(predictions)['outputs']
 
+  #TODO: trim decoded string
+  translation = subtokenizer.decode(translation)
 
-  print(txt)
+  print('Translation of \"%s\": \"%s\"' % (txt, translation))
 
 
 def main(unused_argv):
   tf.logging.set_verbosity(tf.logging.INFO)
 
   if FLAGS.text is None and FLAGS.file is None:
-    tf.logging.info('Nothing to translate. Make sure to call this script using'
+    tf.logging.warn('Nothing to translate. Make sure to call this script using '
                     'flags --text or --file.')
     return
 
-  subtokenizer = tokenizer.Subtokenizer(os.path.join(FLAGS.data_dir,
-                                                     tokenizer.VOCAB_FILE))
+  subtokenizer = tokenizer.Subtokenizer(
+      os.path.join(FLAGS.data_dir, tokenizer.VOCAB_FILE))
 
   if FLAGS.params == 'base':
     params = model_params.TransformerBaseParams
@@ -107,10 +127,11 @@ def main(unused_argv):
     raise ValueError('Invalid parameter set defined: %s.'
                      'Expected "base" or "big.' % FLAGS.params)
 
+  # Set up estimator and params
   params.beam_size = _BEAM_SIZE
   params.alpha = _ALPHA
   params.extra_decode_length = _EXTRA_DECODE_LENGTH
-  params.batch_size = _BATCH_SIZE
+  params.batch_size = _DECODE_BATCH_SIZE
   estimator = tf.estimator.Estimator(
       model_fn=transformer.model_fn, model_dir=FLAGS.model_dir, params=params)
 
@@ -118,7 +139,6 @@ def main(unused_argv):
     tf.logging.info('Translating text: %s' % FLAGS.text)
     translate_text(estimator, subtokenizer, FLAGS.text)
 
-  '''
   if FLAGS.file is not None:
     input_file = os.path.abspath(FLAGS.file)
     tf.logging.info('Translating file: %s' % input_file)
@@ -130,8 +150,8 @@ def main(unused_argv):
         output_file = os.path.abspath(FLAGS.file_out)
         tf.logging.info('File output specified: %s' % output_file)
 
-      translate_file(subtokenizer, input_file, output_file)
-  '''
+      translate_file(estimator, subtokenizer, input_file, output_file)
+
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
@@ -142,7 +162,7 @@ if __name__ == '__main__':
            'translate_ende_wmt32k dataset is saved.',
       metavar='<DD>')
   parser.add_argument(
-      '--model_dir', '-md', type=str, default='/usr/local/google/home/kathywu/train/transformer2',#'/tmp/transformer_model',
+      '--model_dir', '-md', type=str, default='/tmp/transformer_model',
       help='[default: %(default)s] Directory to save Transformer model '
            'training checkpoints',
       metavar='<MD>')
@@ -151,18 +171,18 @@ if __name__ == '__main__':
       help='[default: %(default)s] Parameter used for trained model.',
       metavar='<P>')
   parser.add_argument(
-      '--text', '-t', type=str, default="want to eat some lunch",
+      '--text', '-t', type=str, default=None,
       help='[default: %(default)s] Text to translate. Output will be printed '
            'to console.',
       metavar='<T>')
   parser.add_argument(
-      '--file', '-f', type=str, default='yo.txt',
+      '--file', '-f', type=str, default=None,
       help='[default: %(default)s] File containing text to translate. '
            'Translation will be printed to console and, if --file_out is '
            'provided, saved to an output file.',
       metavar='<F>')
   parser.add_argument(
-      '--file_out', '-fo', type=str, default='www',
+      '--file_out', '-fo', type=str, default=None,
       help='[default: %(default)s] If --file flag is specified, save '
            'translation to this file.',
       metavar='<FO>')

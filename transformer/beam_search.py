@@ -55,6 +55,9 @@ def _create_beam_search_state_vars(batch_size, beam_size, initial_ids,
     shape_list = _shape_list(tensor)
     for i in range(len(shape_list) - 1):
       shape_list[i] = None
+
+    if isinstance(shape_list[-1], tf.Tensor):
+      shape_list[-1] = None
     return tf.TensorShape(shape_list)
 
   alive_cache = nest.map_structure(
@@ -218,18 +221,14 @@ def _grow_and_keep_topk_seq(symbols_to_logits_fn, alive_seq, alive_log_probs,
   # cache values at the same time.
   flat_ids = _flatten_beam_dim(alive_seq)  # [batch_size * beam_size
   flat_cache = nest.map_structure(_flatten_beam_dim, alive_cache)
-  #print('flat_cache', flat_cache, alive_cache)
-  flat_ids = tf.Print(flat_ids, [flat_ids, alive_seq, tf.shape(alive_seq)], 'flat ids ', summarize=10)
+
   flat_logits, flat_cache = symbols_to_logits_fn(flat_ids, i, flat_cache)
-  #print('flat_cache2', flat_cache, alive_cache)
-  #print('flat_logits', flat_logits)
-  #print('flat_ids', flat_ids, alive_seq)
+
   # Unflatten logits to shape [batch_size, beam_size, vocab_size]
   logits = _unflatten_beam_dim(flat_logits, batch_size, beam_size)
   new_cache = nest.map_structure(
       lambda t: _unflatten_beam_dim(t, batch_size, beam_size), flat_cache)
-  #print('new_cache_1', new_cache)
-  logits = tf.Print(logits, [tf.shape(logits), tf.shape(flat_logits)], 'final logits: ', summarize=10)
+
   # Convert logits to normalized log probs
   candidate_log_probs = _log_prob_from_logits(logits)
 
@@ -253,7 +252,6 @@ def _grow_and_keep_topk_seq(symbols_to_logits_fn, alive_seq, alive_log_probs,
   # Append the most probable IDs to the topk sequences
   topk_ids = tf.expand_dims(topk_ids, axis=2)
   topk_seq = tf.concat([topk_seq, topk_ids], axis=2)
-  #print('returned_cache1',new_cache)
   return topk_seq, topk_log_probs, new_cache
 
 
@@ -280,7 +278,7 @@ def _collect_top_alive_seq(new_seq, new_log_probs, new_cache, eos_id,
   # To prevent finished sequences from being considered, set log probs to -INF
   new_finished_flags = tf.equal(new_seq[:, :, -1], eos_id)
   new_log_probs += tf.to_float(new_finished_flags) * -INF
-  #print('collect_alive:', 'new_cache', new_cache)
+
   return _gather_topk_beams(
       [new_seq, new_log_probs, new_cache], new_log_probs, batch_size, beam_size)
 
@@ -321,7 +319,7 @@ def _collect_top_finished_seq(
 
   # Calculate new seq scores from log probabilities
   length_norm = _length_normalization(alpha, i + 1)
-  #print('new_log_probs',new_log_probs)
+
   new_scores = new_log_probs / length_norm
 
   # Set the scores of the still-alive seq in new_seq to large negative values
@@ -405,7 +403,6 @@ def sequence_beam_search(
     best_alive_scores = alive_log_probs[:, 0] / max_length_normalization
 
     # Compute worst score in finished sequences for each batch element
-    #print('finished_scores', finished_scores)
     finished_scores *= tf.to_float(finished_flags)  # set filler scores to zero
     lowest_finished_scores = tf.reduce_min(finished_scores, axis=1)
 
@@ -462,7 +459,6 @@ def sequence_beam_search(
          Scores for new finished sequences,
          Flags for finished sequences and scores)
     """
-    #print("="*100)
     # Grow alive sequences by a single ,and collect top 2*beam_size sequences
     # Collect 2*beam_size sequences because some sequences may have reached the
     # EOS token, and 2*beam_size ensures that at least beam_size sequences are
@@ -470,12 +466,11 @@ def sequence_beam_search(
     new_seq, new_log_probs, new_cache = _grow_and_keep_topk_seq(
         symbols_to_logits_fn, alive_seq, alive_log_probs, alive_cache,
         vocab_size, batch_size, beam_size, i,  k=2 * beam_size)
-    #print('original_cache', alive_cache)
-    #print('new_cache', new_cache)
+
     # Collect top beam_size alive sequences
     alive_seq, alive_log_prob, alive_cache = _collect_top_alive_seq(
         new_seq, new_log_probs, new_cache, eos_id, batch_size, beam_size)
-    #print('alive_cache', alive_cache)
+
     # Combine newly finished sequences with existing finished sequences, and
     # collect the top k scoring sequences.
     finished_seq, finished_scores, finished_flags = _collect_top_finished_seq(
@@ -488,16 +483,6 @@ def sequence_beam_search(
   batch_size = tf.shape(initial_ids)[0]
   state_vars, state_shapes = _create_beam_search_state_vars(
       batch_size, beam_size, initial_ids, initial_cache)
-
-
-  for n,(i,j) in enumerate(zip(state_vars, state_shapes)):
-    print(_var_names[n])
-    print(i)
-    print(j)
-    print()
-
-  #print(state_vars)
-  #print(state_shapes)
 
   (_, alive_seq, alive_log_probs, _, finished_seq, finished_scores,
    finished_flags) = tf.while_loop(

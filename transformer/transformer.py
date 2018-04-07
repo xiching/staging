@@ -96,16 +96,19 @@ class Transformer(object):
         attention_bias, cache)
 
   def predict(self, inputs):
+    """Predict"""
+    # Prepare decoder values
     embedded_inputs, inputs_padding = self.embedding_softmax_layer(inputs)
     attention_bias = self.get_padding_bias(inputs_padding)
     encoder_outputs = self.encode(
         embedded_inputs, inputs_padding, attention_bias)
-    encoder_outputs.set_shape([None, None, self.params.hidden_size])
     max_decode_length = tf.shape(inputs)[1] + self.params.extra_decode_length
-    timing_signal = get_position_encoding(max_decode_length + 1, self.params.hidden_size)
-
     decoder_self_attention_bias = get_decoder_self_attention_bias(
         max_decode_length)
+
+    timing_signal = get_position_encoding(
+        max_decode_length + 1, self.params.hidden_size)
+
     def preprocess_targets(targets, i):
       """Performs preprocessing steps on the targets to prepare for the decoder.
 
@@ -123,32 +126,41 @@ class Transformer(object):
       """
       targets, _ = self.embedding_softmax_layer(targets)
 
-      targets = tf.Print(targets, [tf.shape(targets), tf.shape(timing_signal), tf.shape(timing_signal[i:i + 1])], 'targets ', summarize=10)
-
-      # TODO(llion): Explain! Is this even needed?
-      targets = tf.cond(tf.equal(i, 0), lambda: tf.zeros_like(targets), lambda: targets)
+      # The initial IDs shouldn't matter, so when i=0 set all embedded values to
+      # zero.
+      targets = tf.cond(
+          tf.equal(i, 0), lambda: tf.zeros_like(targets), lambda: targets)
 
       targets += timing_signal[i:i + 1]
       return targets
 
     def symbols_to_logits_fn(ids, i, cache):
-      """Predict the next set of logits."""
-      ids = ids[:, -1:]
-      #targets = tf.expand_dims(tf.expand_dims(ids, axis=2), axis=3)
-      #targets = tf.expand_dims(ids)
-      targets = ids
-      targets = preprocess_targets(targets, i)
+      """Predict the next set of logits.
+
+      Args:
+        ids: Current decoded sequences
+          int32 tensor with shape [batch_size * beam_size, i]
+        i: Loop index, also the current sequence length.
+        cache: dictionary of values storing the encoder output, encoder-decoder
+          attention bias, and previous decoder attention values.
+
+      Returns:
+        Tuple of
+          (logits of candidate IDs for each sequence
+             [batch_size * beam_size, vocab_size],
+           updated cache values)
+      """
+      decoder_input = ids[:, -1:]  # Set decoder input as the last generated IDs
+      decoder_input = preprocess_targets(decoder_input, i)
       bias = decoder_self_attention_bias[:, :, i:i + 1, :i + 1]
-      print(ids, i, cache)
-      bias = tf.Print(bias, [bias, tf.shape(bias), tf.shape(targets),tf.shape(ids)],'bias ', summarize=100)
+
       decoder_outputs = self.decode(
-          targets, cache.get("encoder_output"),
+          decoder_input, cache.get("encoder_output"),
           cache.get("encoder_decoder_attention_bias"), bias, cache)
 
       logits = self.embedding_softmax_layer.linear(decoder_outputs)
       logits = tf.squeeze(logits, axis=[1])
       return logits, cache
-      #return tf.squeeze(logits, axis=[1, 2, 3])
 
     return self.fast_decode(
         encoder_output=encoder_outputs,
@@ -220,8 +232,6 @@ class Transformer(object):
     if encoder_output is not None:
       cache["encoder_output"] = encoder_output
       cache["encoder_decoder_attention_bias"] = encoder_decoder_attention_bias
-      #cache["encoder_decoder_attention_bias"].set_shape([None, 1, 1, None])
-      #cache["encoder_output"].set_shape([None, None, 512])
 
     if beam_size > 1:  # Beam Search
       initial_ids = tf.zeros([batch_size], dtype=tf.int32)
@@ -237,8 +247,10 @@ class Transformer(object):
 
       if top_beams == 1:
         decoded_ids = decoded_ids[:, 0, 1:]
+        scores = scores[:, 0]
       else:
         decoded_ids = decoded_ids[:, :top_beams, 1:]
+        scores = scores[:, top_beams]
     else:  # Greedy
 
       def inner_loop(i, finished, next_id, decoded_ids, cache):
@@ -423,10 +435,8 @@ class Attention(tf.layers.Layer):
 
     # Save k and v to cache
     if cache is not None:
-      v = tf.Print(v, [tf.shape(v), tf.shape(cache["v"])], 'v0 ', summarize=10)
       k = cache['k'] = tf.concat([cache['k'], k], axis=1)
       v = cache['v'] = tf.concat([cache['v'], v], axis=1)
-      v = tf.Print(v, [tf.shape(v)], 'v1 ', summarize=10)
 
     # Split q, k, v into heads.
     q = self.split_heads(q)
@@ -439,14 +449,10 @@ class Attention(tf.layers.Layer):
 
     # Calculate dot product attention
     logits = tf.matmul(q, k, transpose_b=True)
-    print("LOGITS BIAS", logits, bias)
-    logits = tf.Print(logits, [tf.shape(logits), tf.shape(bias)], 'logits1 ',summarize=10)
     logits += bias
-    logits = tf.Print(logits, [tf.shape(logits), tf.shape(bias)], 'logits2 ',summarize=10)
     weights = tf.nn.softmax(logits, name='attention_weights')
     if self.train:
       weights = tf.nn.dropout(weights, 1.0 - self.attention_dropout)
-    v = tf.Print(v, [tf.shape(weights), tf.shape(v)], 'v ', summarize=10)
     output = tf.matmul(weights, v)
 
     # Recombine heads --> [batch_size, length, hidden_size]
