@@ -13,8 +13,9 @@ INF = 1. * 1e7
 _var_names = ['alive_seq', 'alive_log_probs', 'alive_cache', 'finished_seq',
               'finished_scores', 'finished_flags']
 
-def _create_beam_search_state_vars(batch_size, beam_size, initial_ids,
-    initial_cache):
+
+def _create_beam_search_state_vars(
+    batch_size, beam_size, initial_ids, initial_cache):
   """Create tensors for storing solution states found in beam search.
 
   The following state variables are created:
@@ -47,7 +48,7 @@ def _create_beam_search_state_vars(batch_size, beam_size, initial_ids,
   alive_seq_shape = tf.TensorShape([None, beam_size, None])
 
   # Assume initial_ids are prob 1.0
-  initial_log_probs = tf.constant([[0.] + [-float("inf")] * (beam_size - 1)])
+  initial_log_probs = tf.constant([[0.] + [-float('inf')] * (beam_size - 1)])
   alive_log_probs = tf.tile(initial_log_probs, [batch_size, 1])
   alive_log_probs_shape = tf.TensorShape([None, beam_size])
 
@@ -75,11 +76,11 @@ def _create_beam_search_state_vars(batch_size, beam_size, initial_ids,
   finished_flags = tf.zeros([batch_size, beam_size], tf.bool)
   finished_flags_shape = tf.TensorShape([None, beam_size])
 
-  vars = [alive_seq, alive_log_probs, alive_cache, finished_seq,
-          finished_scores, finished_flags]
+  state_vars = [alive_seq, alive_log_probs, alive_cache, finished_seq,
+                finished_scores, finished_flags]
   shapes = [alive_seq_shape, alive_log_probs_shape, alive_cache_shape,
             finished_seq_shape, finished_scores_shape, finished_flags_shape]
-  return vars, shapes
+  return state_vars, shapes
 
 
 def _expand_to_beam_size(tensor, beam_size):
@@ -98,6 +99,7 @@ def _expand_to_beam_size(tensor, beam_size):
 
   return tf.tile(tensor, tile_dims)
 
+
 def _shape_list(tensor):
   """Return a list of the tensor's shape, and ensure no None values in list."""
   # Get statically known shape (may contain None's for unknown dimensions)
@@ -109,6 +111,7 @@ def _shape_list(tensor):
     if shape[i] is None:
       shape[i] = dynamic_shape[i]
   return shape
+
 
 def _flatten_beam_dim(tensor):
   """Reshapes first two dimensions in to single dimension.
@@ -181,14 +184,16 @@ def _gather_beams(nested, beam_indices, batch_size, new_beam_size):
   return nest.map_structure(
       lambda state: tf.gather_nd(state, coordinates), nested)
 
+
 def _gather_topk_beams(nested, score_or_log_prob, batch_size, beam_size):
   """Gather top beams from nested structure."""
   _, topk_indexes = tf.nn.top_k(score_or_log_prob, k=beam_size)
   return _gather_beams(nested, topk_indexes, batch_size, beam_size)
 
 
-def _grow_and_keep_topk_seq(symbols_to_logits_fn, alive_seq, alive_log_probs,
-    alive_cache, vocab_size, batch_size, beam_size, i, k):
+def _grow_and_keep_topk_seq(
+    symbols_to_logits_fn, alive_seq, alive_log_probs, alive_cache, vocab_size,
+    batch_size, beam_size, i, k):
   """Grow alive sequences and return the top k sequences.
 
   Args:
@@ -255,8 +260,8 @@ def _grow_and_keep_topk_seq(symbols_to_logits_fn, alive_seq, alive_log_probs,
   return topk_seq, topk_log_probs, new_cache
 
 
-def _collect_top_alive_seq(new_seq, new_log_probs, new_cache, eos_id,
-    batch_size, beam_size):
+def _collect_top_alive_seq(
+    new_seq, new_log_probs, new_cache, eos_id, batch_size, beam_size):
   """Gather the top k sequences that are still alive.
 
   Args:
@@ -420,8 +425,9 @@ def sequence_beam_search(
         tf.logical_not(worst_finished_score_better_than_best_alive_score)
     )
 
-  def loop_body(i, alive_seq, alive_log_probs, alive_cache, finished_seq,
-      finished_scores, finished_flags):
+  def loop_body(
+      i, alive_seq, alive_log_probs, alive_cache, finished_seq, finished_scores,
+      finished_flags):
     """Beam search loop body.
 
     Grow alive sequences a single ID. Sequences that have reached the EOS token
@@ -465,7 +471,7 @@ def sequence_beam_search(
     # still alive.
     new_seq, new_log_probs, new_cache = _grow_and_keep_topk_seq(
         symbols_to_logits_fn, alive_seq, alive_log_probs, alive_cache,
-        vocab_size, batch_size, beam_size, i,  k=2 * beam_size)
+        vocab_size, batch_size, beam_size, i, k=2 * beam_size)
 
     # Collect top beam_size alive sequences
     alive_seq, alive_log_prob, alive_cache = _collect_top_alive_seq(

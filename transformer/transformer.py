@@ -1,13 +1,13 @@
 # Copyright 2018 MLBenchmark Group. All Rights Reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
+# Licensed under the Apache License, Version 2.0 (the 'License');
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
+# distributed under the License is distributed on an 'AS IS' BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -25,12 +25,12 @@ from six.moves import xrange
 import tensorflow as tf
 from tensorflow.python.util import nest
 
-
 import beam_search
 import dataset
 import metrics
 import model_params
 import tokenizer
+
 
 class Transformer(object):
   """Transformer model that inputs and outputs data."""
@@ -155,8 +155,8 @@ class Transformer(object):
       bias = decoder_self_attention_bias[:, :, i:i + 1, :i + 1]
 
       decoder_outputs = self.decode(
-          decoder_input, cache.get("encoder_output"),
-          cache.get("encoder_decoder_attention_bias"), bias, cache)
+          decoder_input, cache.get('encoder_output'),
+          cache.get('encoder_decoder_attention_bias'), bias, cache)
 
       logits = self.embedding_softmax_layer.linear(decoder_outputs)
       logits = tf.squeeze(logits, axis=[1])
@@ -204,10 +204,10 @@ class Transformer(object):
 
     Returns:
         A dict of decoding results {
-            "outputs": integer `Tensor` of decoded ids of shape
+            'outputs': integer `Tensor` of decoded ids of shape
                 [batch_size, <= decode_length] if top_beams == 1 or
                 [batch_size, top_beams, <= decode_length] otherwise
-            "scores": decoding log probs from the beam search,
+            'scores': decoding log probs from the beam search,
                 None if using greedy decoding (beam_size=1)
         }
 
@@ -222,16 +222,16 @@ class Transformer(object):
     num_layers = self.params.num_hidden_layers
 
     cache = {
-      "layer_%d" % layer: {
-        "k": tf.zeros([batch_size, 0, key_channels]),
-        "v": tf.zeros([batch_size, 0, value_channels]),
+      'layer_%d' % layer: {
+        'k': tf.zeros([batch_size, 0, key_channels]),
+        'v': tf.zeros([batch_size, 0, value_channels]),
       }
       for layer in range(num_layers)
     }
 
     if encoder_output is not None:
-      cache["encoder_output"] = encoder_output
-      cache["encoder_decoder_attention_bias"] = encoder_decoder_attention_bias
+      cache['encoder_output'] = encoder_output
+      cache['encoder_decoder_attention_bias'] = encoder_decoder_attention_bias
 
     if beam_size > 1:  # Beam Search
       initial_ids = tf.zeros([batch_size], dtype=tf.int32)
@@ -281,7 +281,7 @@ class Transformer(object):
           ])
       scores = None
 
-    return {"outputs": decoded_ids, "scores": scores}
+    return {'outputs': decoded_ids, 'scores': scores}
 
 
 class EmbeddingSharedWeights(tf.layers.Layer):
@@ -635,7 +635,7 @@ class Decoder(tf.layers.Layer):
         with tf.variable_scope('self_attention'):
           decoder_inputs = self_attention_layer(
               decoder_inputs, decoder_self_attention_bias, cache=layer_cache)
-        with tf.variable_scope("encdec_attention"):
+        with tf.variable_scope('encdec_attention'):
           decoder_inputs = enc_dec_attention_layer(
               decoder_inputs, encoder_outputs, attention_bias)
         with tf.variable_scope('ffn'):
@@ -803,7 +803,7 @@ def main(_):
     params = model_params.TransformerBigParams
   else:
     raise ValueError('Invalid parameter set defined: %s.'
-                     'Expected "base" or "big.' % FLAGS.params)
+                     'Expected "base" or "big."' % FLAGS.params)
 
   # Add flag-defined parameters to params object
   params.data_dir = FLAGS.data_dir

@@ -1,3 +1,9 @@
+"""Translate text or files using trained transformer model."""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import os
 import sys
@@ -12,6 +18,7 @@ _DECODE_BATCH_SIZE = 32
 _EXTRA_DECODE_LENGTH = 100
 _BEAM_SIZE = 4
 _ALPHA = 0.6
+
 
 def _get_sorted_inputs(filename):
   """Read and sort lines from the file sorted by decreasing length.
@@ -67,9 +74,9 @@ def translate_file(estimator, subtokenizer, input_file, output_file=None):
     for i, line in enumerate(sorted_inputs):
       if i % batch_size == 0:
         batch_num = (i // batch_size) + 1
-        print("="*100)
-        print("Decoding batch %d out of %d" % (batch_num, num_decode_batches))
-        print("="*100)
+        print('='*100)
+        print('Decoding batch %d out of %d' % (batch_num, num_decode_batches))
+        print('='*100)
       yield _encode_and_add_eos(line, subtokenizer)
 
   def input_fn():
@@ -84,9 +91,9 @@ def translate_file(estimator, subtokenizer, input_file, output_file=None):
     translation = _trim_and_decode(prediction['outputs'], subtokenizer)
     translations.append(translation)
 
-    print("Translating:")
-    print("\tInput: %s" % sorted_inputs[i])
-    print("\tOutput: %s\n" % translation)
+    print('Translating:')
+    print('\tInput: %s' % sorted_inputs[i])
+    print('\tOutput: %s\n' % translation)
 
   # Write translations in the order they appeared in the original file.
   if output_file is not None:
@@ -101,6 +108,7 @@ def translate_file(estimator, subtokenizer, input_file, output_file=None):
 
 
 def translate_text(estimator, subtokenizer, txt):
+  """Translate a single string."""
   encoded_txt = _encode_and_add_eos(txt, subtokenizer)
 
   def input_fn():
@@ -111,7 +119,7 @@ def translate_text(estimator, subtokenizer, txt):
   predictions = estimator.predict(input_fn)
   translation = next(predictions)['outputs']
   translation = _trim_and_decode(translation, subtokenizer)
-  print('Translation of \"%s\": \"%s\"' % (txt, translation))
+  print('Translation of \'%s\': \'%s\'' % (txt, translation))
 
 
 def main(unused_argv):
@@ -131,7 +139,7 @@ def main(unused_argv):
     params = model_params.TransformerBigParams
   else:
     raise ValueError('Invalid parameter set defined: %s.'
-                     'Expected "base" or "big.' % FLAGS.params)
+                     'Expected "base" or "big."' % FLAGS.params)
 
   # Set up estimator and params
   params.beam_size = _BEAM_SIZE
@@ -192,9 +200,6 @@ if __name__ == '__main__':
       help='[default: %(default)s] If --file flag is specified, save '
            'translation to this file.',
       metavar='<FO>')
-
-
-
 
   FLAGS, unparsed = parser.parse_known_args()
   main(sys.argv)
