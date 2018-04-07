@@ -44,7 +44,17 @@ def _encode_and_add_eos(line, subtokenizer):
   return subtokenizer.encode(line) + [tokenizer.EOS_ID]
 
 
+def _trim_and_decode(ids, subtokenizer):
+  """Trim EOS and PAD tokens from ids, and decode to return a string."""
+  try:
+    index = list(ids).index(tokenizer.EOS_ID)
+    return subtokenizer.decode(ids[:index])
+  except ValueError:  # No EOS found in sequence
+    return subtokenizer.decode(ids)
+
+
 def translate_file(estimator, subtokenizer, input_file, output_file=None):
+  """Translate lines in file, and save to output file if specified."""
   batch_size = _DECODE_BATCH_SIZE
 
   # Read and sort inputs by length. Keep dictionary (original index-->new index
@@ -71,8 +81,7 @@ def translate_file(estimator, subtokenizer, input_file, output_file=None):
 
   translations = []
   for i, prediction in enumerate(estimator.predict(input_fn)):
-    #TODO: trim decoded string
-    translation = subtokenizer.decode(prediction['outputs'])
+    translation = _trim_and_decode(prediction['outputs'], subtokenizer)
     translations.append(translation)
 
     print("Translating:")
@@ -101,10 +110,7 @@ def translate_text(estimator, subtokenizer, txt):
 
   predictions = estimator.predict(input_fn)
   translation = next(predictions)['outputs']
-
-  #TODO: trim decoded string
-  translation = subtokenizer.decode(translation)
-
+  translation = _trim_and_decode(translation, subtokenizer)
   print('Translation of \"%s\": \"%s\"' % (txt, translation))
 
 
