@@ -177,8 +177,8 @@ if __name__ == '__main__':
       metavar='<DD>')
   parser.add_argument(
       '--model_dir', '-md', type=str, default='/tmp/transformer_model',
-      help='[default: %(default)s] Directory to save Transformer model '
-           'training checkpoints',
+      help='[default: %(default)s] Directory containing Transformer model '
+           'checkpoints.',
       metavar='<MD>')
   parser.add_argument(
       '--params', '-p', type=str, default='base', choices=['base', 'big'],
