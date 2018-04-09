@@ -45,7 +45,7 @@ The model also applies embeddings on the input and output tokens, and adds a con
 
 3. **Translate using the model**
 
-   Run `translate.py --`
+   Run `python translate.py`
 
 4. **Compute official BLEU score**
    (TODO)

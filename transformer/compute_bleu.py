@@ -1,4 +1,8 @@
-"""Script to compute official BLEU score."""
+"""Script to compute official BLEU score.
+
+Source:
+https://github.com/tensorflow/tensor2tensor/blob/master/tensor2tensor/utils/bleu_hook.py
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -75,11 +79,11 @@ def bleu_wrapper(ref_filename, hyp_filename, case_sensitive=False):
 def main(unused_argv):
   if FLAGS.bleu_variant in ("both", "uncased"):
     score = 100 * bleu_wrapper(FLAGS.reference, FLAGS.translation, False)
-    print("Case-sensitive results", score)
+    print("Case-insensitive results:", score)
 
   if FLAGS.bleu_variant in ("both", "cased"):
     score = 100 * bleu_wrapper(FLAGS.reference, FLAGS.translation, True)
-    print("Case-sensitive results", score)
+    print("Case-sensitive results:", score)
 
 
 if __name__ == '__main__':
