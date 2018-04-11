@@ -57,27 +57,27 @@ import os
 import tensorflow as tf
 
 # Use the number of training files as the shuffle buffer.
-FILE_SHUFFLE_BUFFER = 100
+_FILE_SHUFFLE_BUFFER = 100
 # Buffer size for reading records from a TFRecord file. Each training file is
 # 7.2 MB, so 8 MB allows an entire file to be kept in memory.
-READ_RECORD_BUFFER = 8 * 1000 * 1000
+_READ_RECORD_BUFFER = 8 * 1000 * 1000
 
 # Example grouping constants. Defines length boundaries for each group.
 # These values are the defaults used in Tensor2Tensor.
-MIN_BOUNDARY = 8
-BOUNDARY_SCALE = 1.1
+_MIN_BOUNDARY = 8
+_BOUNDARY_SCALE = 1.1
 
 
 def _load_records(filename):
   """Read file and return a dataset of tf.Examples."""
-  return tf.data.TFRecordDataset(filename, buffer_size=READ_RECORD_BUFFER)
+  return tf.data.TFRecordDataset(filename, buffer_size=_READ_RECORD_BUFFER)
 
 
 def _decode_example(serialized_example):
   """Return a dict of Tensors from a serialized tf.Example."""
   data_fields = {
-    'inputs': tf.VarLenFeature(tf.int64),
-    'targets': tf.VarLenFeature(tf.int64)
+      'inputs': tf.VarLenFeature(tf.int64),
+      'targets': tf.VarLenFeature(tf.int64)
   }
   parsed = tf.parse_single_example(serialized_example, data_fields)
   parsed['inputs'] = tf.sparse_tensor_to_dense(parsed['inputs'])
@@ -98,8 +98,8 @@ def _get_example_length(example):
   return length
 
 
-def _create_min_max_boundaries(max_length, min_boundary=MIN_BOUNDARY,
-    boundary_scale=BOUNDARY_SCALE):
+def _create_min_max_boundaries(
+    max_length, min_boundary=_MIN_BOUNDARY, boundary_scale=_BOUNDARY_SCALE):
   """Create min and max boundary lists up to max_length.
 
   For example, when max_length=24, min_boundary=4 and boundary_scale=2, the
@@ -201,12 +201,15 @@ def _load_data(file_pattern, batch_size, max_length, shuffle, num_cpu_cores):
     max_length: Maximum number of tokens per example
     shuffle: If true, randomizes order of elements.
     num_cpu_cores: Number of cpu cores for parallel input processing.
+
+  Returns:
+    tf.data.Dataset object containing examples loaded from the files.
   """
   dataset = tf.data.Dataset.list_files(file_pattern)
 
   if shuffle:
     # Shuffle filenames
-    dataset = dataset.shuffle(buffer_size=FILE_SHUFFLE_BUFFER)
+    dataset = dataset.shuffle(buffer_size=_FILE_SHUFFLE_BUFFER)
 
   # Read files and interleave results. When training, the order of the examples
   # will be non-deterministic.
@@ -239,7 +242,7 @@ def train_input_fn(params):
                  max_length=params.max_length,
                  shuffle=True,
                  num_cpu_cores=params.num_cpu_cores
-                 ).make_one_shot_iterator().get_next()
+                ).make_one_shot_iterator().get_next()
   return x['inputs'], x['targets']
 
 
@@ -251,5 +254,5 @@ def eval_input_fn(params):
                  max_length=params.max_length,
                  shuffle=False,
                  num_cpu_cores=params.num_cpu_cores
-                 ).make_one_shot_iterator().get_next()
+                ).make_one_shot_iterator().get_next()
   return x['inputs'], x['targets']

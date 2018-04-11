@@ -14,14 +14,14 @@
 # ==============================================================================
 """Defines the Transformer model, and run training loop for the model.
 
-Transformer model code source: https://github.com/tensorflow/tensor2tensor"""
+Transformer model code source: https://github.com/tensorflow/tensor2tensor
+"""
 
 import argparse
 import math
-import os
-from six.moves import xrange
 import sys
 
+from six.moves import xrange
 import tensorflow as tf
 
 import dataset
@@ -30,7 +30,7 @@ import model_params
 
 
 class Transformer(object):
-  """Transformer model that inputs and outputs data """
+  """Transformer model that inputs and outputs data."""
 
   def __init__(self, params, train):
     self.train = train
@@ -135,7 +135,7 @@ class Attention(tf.layers.Layer):
 
   def __init__(self, hidden_size, num_heads, attention_dropout, train):
     assert hidden_size % num_heads == 0, (
-      'Hidden size must be evenly divisible by the number of heads.')
+        'Hidden size must be evenly divisible by the number of heads.')
 
     super(Attention, self).__init__()
     self.hidden_size = hidden_size
@@ -199,7 +199,7 @@ class Attention(tf.layers.Layer):
       y: a tensor with shape [batch_size, length_y, hidden_size]
       bias: attention bias that will be added to the result of the dot product.
 
-    Return:
+    Returns:
       Attention layer output with shape [batch_size, length_x, hidden_size]
     """
     # Linearly project the query (q), key (k) and value (v) using different
@@ -352,8 +352,8 @@ class Encoder(tf.layers.Layer):
           params.hidden_size, params.filter_size, params.relu_dropout, train)
 
       self.layers.append([
-        PrePostProcessingWrapper(self_attention_layer, params, train),
-        PrePostProcessingWrapper(feed_forward_network, params, train)])
+          PrePostProcessingWrapper(self_attention_layer, params, train),
+          PrePostProcessingWrapper(feed_forward_network, params, train)])
 
     # Create final layer normalization layer.
     self.output_normalization = LayerNormalization(params.hidden_size)
@@ -388,14 +388,14 @@ class Decoder(tf.layers.Layer):
           params.hidden_size, params.filter_size, params.relu_dropout, train)
 
       self.layers.append([
-        PrePostProcessingWrapper(self_attention_layer, params, train),
-        PrePostProcessingWrapper(enc_dec_attention_layer, params, train),
-        PrePostProcessingWrapper(feed_forward_network, params, train)])
+          PrePostProcessingWrapper(self_attention_layer, params, train),
+          PrePostProcessingWrapper(enc_dec_attention_layer, params, train),
+          PrePostProcessingWrapper(feed_forward_network, params, train)])
 
     self.output_normalization = LayerNormalization(params.hidden_size)
 
   def call(self, decoder_inputs, encoder_outputs, decoder_self_attention_bias,
-      attention_bias):
+           attention_bias):
     for n, layer in enumerate(self.layers):
       self_attention_layer = layer[0]
       enc_dec_attention_layer = layer[1]
@@ -406,7 +406,7 @@ class Decoder(tf.layers.Layer):
         with tf.variable_scope('self_attention'):
           decoder_inputs = self_attention_layer(
               decoder_inputs, decoder_self_attention_bias)
-        with tf.variable_scope("encdec_attention"):
+        with tf.variable_scope('encdec_attention'):
           decoder_inputs = enc_dec_attention_layer(
               decoder_inputs, encoder_outputs, attention_bias)
         with tf.variable_scope('ffn'):
@@ -415,8 +415,8 @@ class Decoder(tf.layers.Layer):
     return self.output_normalization(decoder_inputs)
 
 
-def get_position_encoding(length, hidden_size, min_timescale=1.0,
-    max_timescale=1.0e4):
+def get_position_encoding(
+    length, hidden_size, min_timescale=1.0, max_timescale=1.0e4):
   """Return positional encoding.
 
   Calculates the position encoding as a mix of sine and cosine functions with
@@ -516,16 +516,17 @@ def get_train_op(loss, params):
     gradients = optimizer.compute_gradients(
         loss, tvars, colocate_gradients_with_ops=True)
     train_op = optimizer.apply_gradients(
-        gradients, global_step=global_step, name="train")
+        gradients, global_step=global_step, name='train')
 
     # Save gradient norm to Tensorboard
-    tf.summary.scalar("global_norm/gradient_norm",
+    tf.summary.scalar('global_norm/gradient_norm',
                       tf.global_norm(list(zip(*gradients))[0]))
 
     return train_op
 
 
 def model_fn(features, labels, mode, params):
+  """Train and evaluate transformer model."""
   with tf.variable_scope('model'):
     inputs, targets = features, labels
 
@@ -575,7 +576,7 @@ def main(_):
       model_dir=FLAGS.model_dir,
       params=params)
 
-  for n in xrange(FLAGS.training_steps // FLAGS.eval_interval):
+  for _ in xrange(FLAGS.training_steps // FLAGS.eval_interval):
     estimator.train(dataset.train_input_fn, steps=FLAGS.eval_interval)
     print('evaluation results:', estimator.evaluate(dataset.eval_input_fn))
 
@@ -583,8 +584,7 @@ def main(_):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument(
-      '--data_dir', '-dd', type=str,
-      default=os.path.expanduser('~/data/translate_ende'),
+      '--data_dir', '-dd', type=str, default='/tmp/translate_ende',
       help='[default: %(default)s] Directory for where the '
            'translate_ende_wmt32k dataset is saved.',
       metavar='<DD>')
@@ -598,6 +598,7 @@ if __name__ == '__main__':
       help='[default: %(default)s] Number of CPU cores to use in the input '
            'pipeline.',
       metavar='<NC>')
+  # TODO: add training epoch argument
   parser.add_argument(
       '--training_steps', '-ts', type=int, default=250000,
       help='[default: %(default)s] Total number of training steps.',
@@ -608,7 +609,7 @@ if __name__ == '__main__':
            'evaluations.',
       metavar='<EI>',)
   parser.add_argument(
-      '--params', '-p', type=str, default='base', choices=['base', 'big'],
+      '--params', '-p', type=str, default='big', choices=['base', 'big'],
       help='[default: %(default)s] Parameter set to use when creating and '
            'training the model.',
       metavar='<P>')
