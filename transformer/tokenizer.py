@@ -241,16 +241,16 @@ def _join_tokens_to_string(tokens):
 
 
 def _escape_token(token, alphabet):
-  r"""Replace characters that aren"t in the alphabet and append "_" to token.
+  r"""Replace characters that aren't in the alphabet and append "_" to token.
 
   Apply three transformations to the token:
     1. Replace underline character "_" with "\u", and backslash "\" with "\\".
     2. Replace characters outside of the alphabet with "\###;", where ### is the
-       character"s Unicode code point.
+       character's Unicode code point.
     3. Appends "_" to mark the end of a token.
 
   Args:
-    token: string to be escaped
+    token: unicode string to be escaped
     alphabet: list of all known characters
 
   Returns:
@@ -424,10 +424,12 @@ def _generate_subtokens_with_target_vocab_size(
   return bisect(_MIN_MIN_COUNT, _MAX_MIN_COUNT)
 
 
-def _generate_alphabet_dict(iterable):
+def _generate_alphabet_dict(iterable, reserved_tokens=None):
   """Create set of characters that appear in any element in the iterable."""
+  if reserved_tokens is None:
+    reserved_tokens = RESERVED_TOKENS
   alphabet = {c for token in iterable for c in token}
-  alphabet |= {c for token in RESERVED_TOKENS for c in token}
+  alphabet |= {c for token in reserved_tokens for c in token}
   alphabet |= _ESCAPE_CHARS  # Add escape characters to alphabet set.
   return alphabet
 
@@ -445,7 +447,7 @@ def _count_and_gen_subtokens(
     max_subtoken_length: maximum length of subtoken in subtoken_dict.
 
   Returns:
-    A dictionary mapping subtokens to the number of times they appear in the
+    A defaultdict mapping subtokens to the number of times they appear in the
     tokens. The dict may contain new subtokens.
   """
   subtoken_counts = collections.defaultdict(int)
@@ -465,11 +467,11 @@ def _count_and_gen_subtokens(
   return subtoken_counts
 
 
-def _filter_and_bucket_subtokens(subtoken_dict, min_count):
+def _filter_and_bucket_subtokens(subtoken_counts, min_count):
   """Return a bucketed list of subtokens that are filtered by count.
 
   Args:
-    subtoken_dict: dict mapping subtokens to their counts
+    subtoken_counts: defaultdict mapping subtokens to their counts
     min_count: int count used to filter subtokens
 
   Returns:
@@ -477,7 +479,7 @@ def _filter_and_bucket_subtokens(subtoken_dict, min_count):
   """
   # Create list of buckets, where subtokens in bucket i have length i.
   subtoken_buckets = []
-  for subtoken, count in six.iteritems(subtoken_dict):
+  for subtoken, count in six.iteritems(subtoken_counts):
     if count < min_count:  # Filter out subtokens that don't appear enough
       continue
     while len(subtoken_buckets) <= len(subtoken):
@@ -507,7 +509,7 @@ def _gen_new_subtoken_list(
   twice (less than min_count) outside of 'translate'.
 
   Args:
-    subtoken_counts: dict mapping str subtokens to int counts
+    subtoken_counts: defaultdict mapping str subtokens to int counts
     min_count: int minumum count requirement for subtokens
     alphabet: set of characters. Each character is added to the subtoken list to
       guarantee that all tokens can be encoded.
@@ -542,7 +544,7 @@ def _gen_new_subtoken_list(
       if subtoken not in alphabet and subtoken not in reserved_tokens:
         subtoken_candidates.append((count, subtoken))
 
-      # Decrement count of the subtoken"s prefixes (if a longer subtoken is
+      # Decrement count of the subtoken's prefixes (if a longer subtoken is
       # added, its prefixes lose priority to be added).
       for end in xrange(1, subtoken_len):
         subtoken_counts[subtoken[:end]] -= count
