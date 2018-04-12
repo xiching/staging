@@ -377,7 +377,7 @@ def main(unused_argv):
   vocab_file = os.path.join(FLAGS.data_dir, _VOCAB_FILE)
   subtokenizer = tokenizer.Subtokenizer.init_from_files(
       vocab_file, train_files_flat, _TARGET_VOCAB_SIZE, _TARGET_THRESHOLD,
-      _TRAIN_DATA_MIN_COUNT)
+      min_count=None if FLAGS.search else _TRAIN_DATA_MIN_COUNT)
 
   tf.logging.info('Step 3/4: Compiling training and evaluation data')
   compiled_train_files = compile_files(FLAGS.raw_dir, train_files, _TRAIN_TAG)
