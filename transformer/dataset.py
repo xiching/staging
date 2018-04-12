@@ -192,7 +192,8 @@ def _batch_examples(dataset, batch_size, max_length):
       window_size_func=window_size_fn))
 
 
-def _load_data(file_pattern, batch_size, max_length, shuffle, num_cpu_cores):
+def _load_data(file_pattern, batch_size, max_length, shuffle, num_cpu_cores,
+    epochs=None):
   """Create a dataset where each item is a dict of 'inputs' and 'targets'.
 
   Args:
@@ -201,6 +202,7 @@ def _load_data(file_pattern, batch_size, max_length, shuffle, num_cpu_cores):
     max_length: Maximum number of tokens per example
     shuffle: If true, randomizes order of elements.
     num_cpu_cores: Number of cpu cores for parallel input processing.
+    epochs: Number of epochs to repeat dataset for. If None, repeat forever.
 
   Returns:
     tf.data.Dataset object containing examples loaded from the files.
@@ -227,7 +229,7 @@ def _load_data(file_pattern, batch_size, max_length, shuffle, num_cpu_cores):
 
   # Batch such that each batch has examples of similar length.
   dataset = _batch_examples(dataset, batch_size, max_length)
-  dataset = dataset.repeat(1)
+  dataset = dataset.repeat(epochs)
 
   # Prefetch the next element to improve speed of input pipeline.
   dataset = dataset.prefetch(1)
@@ -241,7 +243,8 @@ def train_input_fn(params):
                  batch_size=params.batch_size,
                  max_length=params.max_length,
                  shuffle=True,
-                 num_cpu_cores=params.num_cpu_cores
+                 num_cpu_cores=params.num_cpu_cores,
+                 epochs=params.epochs
                 ).make_one_shot_iterator().get_next()
   return x['inputs'], x['targets']
 
@@ -253,6 +256,7 @@ def eval_input_fn(params):
                  batch_size=params.batch_size,
                  max_length=params.max_length,
                  shuffle=False,
-                 num_cpu_cores=params.num_cpu_cores
+                 num_cpu_cores=params.num_cpu_cores,
+                 epochs=1
                 ).make_one_shot_iterator().get_next()
   return x['inputs'], x['targets']

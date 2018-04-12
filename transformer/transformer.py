@@ -31,6 +31,7 @@ import metrics
 import model_params
 import tokenizer
 
+_DEFAULT_TRAIN_EPOCHS = 10
 
 class Transformer(object):
   """Transformer model that inputs and outputs data."""
@@ -803,13 +804,38 @@ def main(_):
   # Add flag-defined parameters to params object
   params.data_dir = FLAGS.data_dir
   params.num_cpu_cores = FLAGS.num_cpu_cores
+  params.epochs = None
 
   estimator = tf.estimator.Estimator(
       model_fn=model_fn, model_dir=FLAGS.model_dir, params=params)
 
-  for _ in xrange(FLAGS.train_steps // FLAGS.steps_between_eval):
-    estimator.train(dataset.train_input_fn, steps=FLAGS.steps_between_eval)
-    print("evaluation results:", estimator.evaluate(dataset.eval_input_fn))
+
+  # Determine training schedule based on flags.
+  if FLAGS.train_steps is not None and FLAGS.train_epochs is not None:
+    raise ValueError("Both --train_steps and --train_epochs were set. Only one "
+                     "may be defined.")
+
+  schedule_str = "Training schedule: training for a maximum of %d %s, and " \
+                 "evaluating every %d %s."
+  if FLAGS.train_steps is not None:
+    print(schedule_str % (
+        FLAGS.train_steps, "steps", FLAGS.steps_between_eval,
+        "step" if FLAGS.steps_between_eval == 1 else "steps"))
+    for _ in xrange(FLAGS.train_steps // FLAGS.steps_between_eval):
+      estimator.train(dataset.train_input_fn, steps=FLAGS.steps_between_eval)
+      print("evaluation results:", estimator.evaluate(dataset.eval_input_fn))
+  else:
+    if FLAGS.train_epochs is None:
+      FLAGS.train_epochs = _DEFAULT_TRAIN_EPOCHS
+    print(schedule_str % (
+      FLAGS.train_epochs, "epochs", FLAGS.epochs_between_eval,
+      "epoch" if FLAGS.epochs_between_eval == 1 else "epochs"))
+
+    params.epochs = FLAGS.epochs_between_eval
+
+    for _ in xrange(FLAGS.train_epochs // FLAGS.epochs_between_eval):
+      estimator.train(dataset.train_input_fn)
+      print("evaluation results:", estimator.evaluate(dataset.eval_input_fn))
 
 
 if __name__ == "__main__":
@@ -835,26 +861,35 @@ if __name__ == "__main__":
            "pipeline.",
       metavar="<NC>")
 
-  # Flags for training with epochs (default).
+  # Flags for training with epochs. (default)
   parser.add_argument(
-      "--train_epochs", "-te", type=int, default=10,
-      help="[default: %(default)s] The number of epochs used to train.",
+      "--train_epochs", "-te", type=int, default=None,
+      help="The number of epochs used to train. If both --train_epochs and "
+           "--train_steps are not set, the model will train for %d epochs." %
+           _DEFAULT_TRAIN_EPOCHS,
       metavar="<TE>")
   parser.add_argument(
       "--epochs_between_eval", "-ebe", type=int, default=1,
       help="[default: %(default)s] The number of training epochs to run "
            "between evaluations.",
       metavar="<TE>")
+  parser.add_argument(
+      '--bleu', action='store_true',
+      help='If set, calculate official BLEU score when evaluating.')
 
   # Flags for training with steps (may be used for debugging)
   parser.add_argument(
       "--train_steps", "-ts", type=int, default=None,
-      help="[default: %(default)s] Total number of training steps.",
+      help="Total number of training steps. If both --train_epochs and "
+           "--train_steps are not set, the model will train for %d epochs." %
+           _DEFAULT_TRAIN_EPOCHS,
       metavar="<TS>")
   parser.add_argument(
       "--steps_between_eval", "-sbe", type=int, default=1000,
       help="[default: %(default)s] Number of training steps to run between "
            "evaluations.",
       metavar="<SBE>",)
+
+
   FLAGS, unparsed = parser.parse_known_args()
   tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)

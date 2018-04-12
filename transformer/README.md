@@ -31,9 +31,9 @@ The model also applies embeddings on the input and output tokens, and adds a con
    ```
 
    Arguments:
-   * `--data_dir`: This should be set to the same directory given to the `data_download`'s `data_dir` argument.
-   * `--model_dir`: Directory to save Transformer model training checkpoints.
-   * `--params`: Parameter set to use when creating and training the model. Options are `base` (default) and `big`.
+   * `--data_dir` or `-dd`: This should be set to the same directory given to the `data_download`'s `data_dir` argument.
+   * `--model_dir` or `-md`: Directory to save Transformer model training checkpoints.
+   * `--params` or `-p`: Parameter set to use when creating and training the model. Options are `base` (default) and `big`.
    * Use the `--help` or `-h` flag to get a full list of possible arguments.
 
 
@@ -45,9 +45,28 @@ The model also applies embeddings on the input and output tokens, and adds a con
 
 3. **Translate using the model**
 
-   Run `python translate.py`
+   ```
+   echo hello world >> decode.en
+   echo goodbye world >> decode.en
+
+   python translate.py --data_dir=/path/to/data --model_dir=/path/to/model --params=base --file decode.en --file_out translation.en
+   ```
+
+   Arguments:
+   * `--file` or `-f`: path to file to translate
+   * `--file_out` or `-fo`: path to output file, which will contain translated lines of the file set by the `--file` flag).
+   * `--text` or `-t`: specify a single string to translate
+   * Use the `--help` or `-h` flag to get a full list of possible arguments.
+
 
 4. **Compute official BLEU score**
+   ```
+   echo -e 'Hallo Welt\nAuf Wiedersehen Welt' > ref-translation.de
+
+   python compute_bleu.py --translation translation.en --reference ref-translation.de
+   ```
+
+   Arguments:
    (TODO)
 
 ## Benchmarks
@@ -57,12 +76,14 @@ The model also applies embeddings on the input and output tokens, and adds a con
 Currently, both big and base params run on a single GPU. The measurements below
 are reported from running the model on a P100 GPU.
 
-Params | batches/sec | batches per epoch | training time
+Params | batches/sec | batches per epoch | time per epoch
 --- | --- | --- | ---
-base | 4.8 | 41365 | 12 hours
-big | 1.1 | 41365 | 12 hours
+base | 4.8 | 83244 | 4.8 hr
+big | 1.1 | 41365 | 10.4 hr
 
+Evaluation results
 
+(TODO)
 
 ## Implementation overview
 

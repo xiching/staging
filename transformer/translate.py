@@ -30,7 +30,7 @@ def _get_sorted_inputs(filename):
     of each element.
   """
   with tf.gfile.Open(filename) as f:
-    records = f.read().split('\n')
+    records = f.read().split("\n")
     inputs = [record.strip() for record in records]
     if not inputs[-1]:
       inputs.pop()
@@ -74,9 +74,9 @@ def translate_file(estimator, subtokenizer, input_file, output_file=None):
     for i, line in enumerate(sorted_inputs):
       if i % batch_size == 0:
         batch_num = (i // batch_size) + 1
-        print('='*100)
-        print('Decoding batch %d out of %d' % (batch_num, num_decode_batches))
-        print('='*100)
+        print("="*100)
+        print("Decoding batch %d out of %d" % (batch_num, num_decode_batches))
+        print("="*100)
       yield _encode_and_add_eos(line, subtokenizer)
 
   def input_fn():
@@ -88,23 +88,23 @@ def translate_file(estimator, subtokenizer, input_file, output_file=None):
 
   translations = []
   for i, prediction in enumerate(estimator.predict(input_fn)):
-    translation = _trim_and_decode(prediction['outputs'], subtokenizer)
+    translation = _trim_and_decode(prediction["outputs"], subtokenizer)
     translations.append(translation)
 
-    print('Translating:')
-    print('\tInput: %s' % sorted_inputs[i])
-    print('\tOutput: %s\n' % translation)
+    print("Translating:")
+    print("\tInput: %s" % sorted_inputs[i])
+    print("\tOutput: %s\n" % translation)
 
   # Write translations in the order they appeared in the original file.
   if output_file is not None:
     if tf.gfile.IsDirectory(output_file):
-      tf.logging.error('File output is a directory, will not save outputs '
-                       'to file.')
+      tf.logging.error("File output is a directory, will not save outputs "
+                       "to file.")
     else:
-      tf.logging.info('Writing to file %s' % output_file)
-      with tf.gfile.Open(output_file, 'w') as f:
+      tf.logging.info("Writing to file %s" % output_file)
+      with tf.gfile.Open(output_file, "w") as f:
         for index in range(len(sorted_keys)):
-          f.write('%s\n' % translations[sorted_keys[index]])
+          f.write("%s\n" % translations[sorted_keys[index]])
 
 
 def translate_text(estimator, subtokenizer, txt):
@@ -117,29 +117,29 @@ def translate_text(estimator, subtokenizer, txt):
     return ds.make_one_shot_iterator().get_next()
 
   predictions = estimator.predict(input_fn)
-  translation = next(predictions)['outputs']
+  translation = next(predictions)["outputs"]
   translation = _trim_and_decode(translation, subtokenizer)
-  print('Translation of \'%s\': \'%s\'' % (txt, translation))
+  print("Translation of \"%s\": \"%s\"" % (txt, translation))
 
 
 def main(unused_argv):
   tf.logging.set_verbosity(tf.logging.INFO)
 
   if FLAGS.text is None and FLAGS.file is None:
-    tf.logging.warn('Nothing to translate. Make sure to call this script using '
-                    'flags --text or --file.')
+    tf.logging.warn("Nothing to translate. Make sure to call this script using "
+                    "flags --text or --file.")
     return
 
   subtokenizer = tokenizer.Subtokenizer(
       os.path.join(FLAGS.data_dir, tokenizer.VOCAB_FILE))
 
-  if FLAGS.params == 'base':
+  if FLAGS.params == "base":
     params = model_params.TransformerBaseParams
-  elif FLAGS.params == 'big':
+  elif FLAGS.params == "big":
     params = model_params.TransformerBigParams
   else:
-    raise ValueError('Invalid parameter set defined: %s.'
-                     'Expected "base" or "big."' % FLAGS.params)
+    raise ValueError("Invalid parameter set defined: %s."
+                     "Expected "base" or "big."" % FLAGS.params)
 
   # Set up estimator and params
   params.beam_size = _BEAM_SIZE
@@ -150,56 +150,59 @@ def main(unused_argv):
       model_fn=transformer.model_fn, model_dir=FLAGS.model_dir, params=params)
 
   if FLAGS.text is not None:
-    tf.logging.info('Translating text: %s' % FLAGS.text)
+    tf.logging.info("Translating text: %s" % FLAGS.text)
     translate_text(estimator, subtokenizer, FLAGS.text)
 
   if FLAGS.file is not None:
     input_file = os.path.abspath(FLAGS.file)
-    tf.logging.info('Translating file: %s' % input_file)
+    tf.logging.info("Translating file: %s" % input_file)
     if not tf.gfile.Exists(FLAGS.file):
-      tf.logging.error('File does not exist: %s' % input_file)
+      tf.logging.error("File does not exist: %s" % input_file)
     else:
       output_file = None
       if FLAGS.file_out is not None:
         output_file = os.path.abspath(FLAGS.file_out)
-        tf.logging.info('File output specified: %s' % output_file)
+        tf.logging.info("File output specified: %s" % output_file)
 
       translate_file(estimator, subtokenizer, input_file, output_file)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   parser = argparse.ArgumentParser()
+
+  # Model arguments
   parser.add_argument(
-      '--data_dir', '-dd', type=str,
-      default=os.path.expanduser('~/data/translate_ende'),
-      help='[default: %(default)s] Directory for where the '
-           'translate_ende_wmt32k dataset is saved.',
-      metavar='<DD>')
+      "--data_dir", "-dd", type=str, default="/tmp/data/translate_ende",
+      help="[default: %(default)s] Directory for where the "
+           "translate_ende_wmt32k dataset is saved.",
+      metavar="<DD>")
   parser.add_argument(
-      '--model_dir', '-md', type=str, default='/tmp/transformer_model',
-      help='[default: %(default)s] Directory containing Transformer model '
-           'checkpoints.',
-      metavar='<MD>')
+      "--model_dir", "-md", type=str, default="/tmp/transformer_model",
+      help="[default: %(default)s] Directory containing Transformer model "
+           "checkpoints.",
+      metavar="<MD>")
   parser.add_argument(
-      '--params', '-p', type=str, default='base', choices=['base', 'big'],
-      help='[default: %(default)s] Parameter used for trained model.',
-      metavar='<P>')
+      "--params", "-p", type=str, default="big", choices=["base", "big"],
+      help="[default: %(default)s] Parameter used for trained model.",
+      metavar="<P>")
+
+  # Flags for specifying text/file to be translated.
   parser.add_argument(
-      '--text', '-t', type=str, default=None,
-      help='[default: %(default)s] Text to translate. Output will be printed '
-           'to console.',
-      metavar='<T>')
+      "--text", "-t", type=str, default=None,
+      help="[default: %(default)s] Text to translate. Output will be printed "
+           "to console.",
+      metavar="<T>")
   parser.add_argument(
-      '--file', '-f', type=str, default=None,
-      help='[default: %(default)s] File containing text to translate. '
-           'Translation will be printed to console and, if --file_out is '
-           'provided, saved to an output file.',
-      metavar='<F>')
+      "--file", "-f", type=str, default=None,
+      help="[default: %(default)s] File containing text to translate. "
+           "Translation will be printed to console and, if --file_out is "
+           "provided, saved to an output file.",
+      metavar="<F>")
   parser.add_argument(
-      '--file_out', '-fo', type=str, default=None,
-      help='[default: %(default)s] If --file flag is specified, save '
-           'translation to this file.',
-      metavar='<FO>')
+      "--file_out", "-fo", type=str, default=None,
+      help="[default: %(default)s] If --file flag is specified, save "
+           "translation to this file.",
+      metavar="<FO>")
 
   FLAGS, unparsed = parser.parse_known_args()
   main(sys.argv)

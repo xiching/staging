@@ -89,15 +89,6 @@ def main(unused_argv):
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument(
-      '--model_dir', '-md', type=str, default='/tmp/transformer_model',
-      help='[default: %(default)s] Directory containing Transformer model '
-           'checkpoints.',
-      metavar='<MD>')
-  parser.add_argument(
-      '--params', '-p', type=str, default='base', choices=['base', 'big'],
-      help='[default: %(default)s] Parameter used for trained model.',
-      metavar='<P>')
-  parser.add_argument(
       '--translation', '-t', type=str, default=None, required=True,
       help='[default: %(default)s] File containing translated text.',
       metavar='<T>')
