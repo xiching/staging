@@ -20,7 +20,7 @@ The model also applies embeddings on the input and output tokens, and adds a con
     * `--data_dir`: Path where the preprocessed TFRecord data, and vocab file will be saved.
     * Use the `--help` or `-h` flag to get a full list of possible arguments.
 
-     1.75GB of compressed data will be downloaded. In total, the raw files (compressed, extracted, and combined files) take up 8.4GB of disk space. The resulting TFRecord and vocabulary files are 722MB. The script takes around 40 minutes to run, with the bulk of the time spent downloading and ~15 minutes spent on preprocessing.
+   1.75GB of compressed data will be downloaded. In total, the raw files (compressed, extracted, and combined files) take up 8.4GB of disk space. The resulting TFRecord and vocabulary files are 722MB. The script takes around 40 minutes to run, with the bulk of the time spent downloading and ~15 minutes spent on preprocessing.
 
 2. **Model training and evaluation**
 
@@ -51,7 +51,18 @@ The model also applies embeddings on the input and output tokens, and adds a con
    (TODO)
 
 ## Benchmarks
-(TODO)
+
+### Training times
+
+Currently, both big and base params run on a single GPU. The measurements below
+are reported from running the model on a P100 GPU.
+
+Params | batches/sec | batches per epoch | training time
+--- | --- | --- | ---
+base | 4.8 | 41365 | 12 hours
+big | 1.1 | 41365 | 12 hours
+
+
 
 ## Implementation overview
 

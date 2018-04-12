@@ -1,3 +1,17 @@
+# Copyright 2018 MLBenchmark Group. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 """Beam search implementation from Tensor2Tensor.
 
 Source:
@@ -10,8 +24,8 @@ from tensorflow.python.util import nest
 # Default value for INF
 INF = 1. * 1e7
 
-_var_names = ['alive_seq', 'alive_log_probs', 'alive_cache', 'finished_seq',
-              'finished_scores', 'finished_flags']
+_var_names = ["alive_seq", "alive_log_probs", "alive_cache", "finished_seq",
+              "finished_scores", "finished_flags"]
 
 
 def _create_beam_search_state_vars(
@@ -349,7 +363,7 @@ def _length_normalization(alpha, sequence_length):
 def sequence_beam_search(
     symbols_to_logits_fn, initial_ids, initial_cache, vocab_size, beam_size,
     alpha, max_decode_length, eos_id):
-  """DErp derp.
+  """Search for sequence of subtoken ids with the largest probability.
 
   Args:
     symbols_to_logits_fn: A function that takes in ids, index, and cache as

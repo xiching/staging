@@ -1,13 +1,13 @@
 # Copyright 2018 MLBenchmark Group. All Rights Reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the 'License');
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an 'AS IS' BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -48,8 +48,8 @@ class Transformer(object):
     # Variance scaling is used here because it seems to work in many problems.
     # Other reasonable initializers may also work just as well.
     initializer = tf.variance_scaling_initializer(
-        self.params.initializer_gain, mode='fan_avg', distribution='uniform')
-    with tf.variable_scope('Transformer', initializer=initializer):
+        self.params.initializer_gain, mode="fan_avg", distribution="uniform")
+    with tf.variable_scope("Transformer", initializer=initializer):
       if targets is None:
         return self.predict(inputs)
 
@@ -75,7 +75,7 @@ class Transformer(object):
     """Calculate attention bias from input padding."""
     # Create bias tensor of size [batch_size, 1, 1, input_len] that is zero
     # everywhere except -1e9 (negative infinity) at the padding locations.
-    with tf.name_scope('attention_bias'):
+    with tf.name_scope("attention_bias"):
       attention_bias = inputs_padding * -1e9
       attention_bias = tf.expand_dims(
           tf.expand_dims(attention_bias, axis=1), axis=1)
@@ -155,8 +155,8 @@ class Transformer(object):
       bias = decoder_self_attention_bias[:, :, i:i + 1, :i + 1]
 
       decoder_outputs = self.decode(
-          decoder_input, cache.get('encoder_output'),
-          cache.get('encoder_decoder_attention_bias'), bias, cache)
+          decoder_input, cache.get("encoder_output"),
+          cache.get("encoder_decoder_attention_bias"), bias, cache)
 
       logits = self.embedding_softmax_layer.linear(decoder_outputs)
       logits = tf.squeeze(logits, axis=[1])
@@ -204,10 +204,10 @@ class Transformer(object):
 
     Returns:
         A dict of decoding results {
-            'outputs': integer `Tensor` of decoded ids of shape
+            "outputs": integer `Tensor` of decoded ids of shape
                 [batch_size, <= decode_length] if top_beams == 1 or
                 [batch_size, top_beams, <= decode_length] otherwise
-            'scores': decoding log probs from the beam search,
+            "scores": decoding log probs from the beam search,
                 None if using greedy decoding (beam_size=1)
         }
 
@@ -222,16 +222,16 @@ class Transformer(object):
     num_layers = self.params.num_hidden_layers
 
     cache = {
-      'layer_%d' % layer: {
-        'k': tf.zeros([batch_size, 0, key_channels]),
-        'v': tf.zeros([batch_size, 0, value_channels]),
+      "layer_%d" % layer: {
+        "k": tf.zeros([batch_size, 0, key_channels]),
+        "v": tf.zeros([batch_size, 0, value_channels]),
       }
       for layer in range(num_layers)
     }
 
     if encoder_output is not None:
-      cache['encoder_output'] = encoder_output
-      cache['encoder_decoder_attention_bias'] = encoder_decoder_attention_bias
+      cache["encoder_output"] = encoder_output
+      cache["encoder_decoder_attention_bias"] = encoder_decoder_attention_bias
 
     if beam_size > 1:  # Beam Search
       initial_ids = tf.zeros([batch_size], dtype=tf.int32)
@@ -281,7 +281,7 @@ class Transformer(object):
           ])
       scores = None
 
-    return {'outputs': decoded_ids, 'scores': scores}
+    return {"outputs": decoded_ids, "scores": scores}
 
 
 class EmbeddingSharedWeights(tf.layers.Layer):
@@ -293,11 +293,11 @@ class EmbeddingSharedWeights(tf.layers.Layer):
     self.hidden_size = hidden_size
 
   def build(self, _):
-    with tf.variable_scope('embedding_and_softmax', reuse=tf.AUTO_REUSE):
+    with tf.variable_scope("embedding_and_softmax", reuse=tf.AUTO_REUSE):
       # Create and initialize weights. The random normal initializer was chosen
       # randomly, and works well.
       self.shared_weights = tf.get_variable(
-          'weights', [self.vocab_size, self.hidden_size],
+          "weights", [self.vocab_size, self.hidden_size],
           initializer=tf.random_normal_initializer(
               0., self.hidden_size ** -0.5))
 
@@ -313,7 +313,7 @@ class EmbeddingSharedWeights(tf.layers.Layer):
       padding: float32 tensor with shape [batch_size, length] indicating the
         locations of the padding tokens in x.
     """
-    with tf.name_scope('embedding'):
+    with tf.name_scope("embedding"):
       embeddings = tf.gather(self.shared_weights, x)
 
       # Scale embedding by the sqrt of the hidden size
@@ -335,7 +335,7 @@ class EmbeddingSharedWeights(tf.layers.Layer):
     Returns:
       float32 tensor with shape [batch_size, length, vocab_size].
     """
-    with tf.name_scope('presoftmax_linear'):
+    with tf.name_scope("presoftmax_linear"):
       batch_size = tf.shape(x)[0]
       length = tf.shape(x)[1]
 
@@ -350,7 +350,7 @@ class Attention(tf.layers.Layer):
 
   def __init__(self, hidden_size, num_heads, attention_dropout, train):
     assert hidden_size % num_heads == 0, (
-        'Hidden size must be evenly divisible by the number of heads.')
+        "Hidden size must be evenly divisible by the number of heads.")
 
     super(Attention, self).__init__()
     self.hidden_size = hidden_size
@@ -359,12 +359,12 @@ class Attention(tf.layers.Layer):
     self.train = train
 
     # Layers for linearly projecting the queries, keys, and values.
-    self.q_dense_layer = tf.layers.Dense(hidden_size, use_bias=False, name='q')
-    self.k_dense_layer = tf.layers.Dense(hidden_size, use_bias=False, name='k')
-    self.v_dense_layer = tf.layers.Dense(hidden_size, use_bias=False, name='v')
+    self.q_dense_layer = tf.layers.Dense(hidden_size, use_bias=False, name="q")
+    self.k_dense_layer = tf.layers.Dense(hidden_size, use_bias=False, name="k")
+    self.v_dense_layer = tf.layers.Dense(hidden_size, use_bias=False, name="v")
 
     self.output_dense_layer = tf.layers.Dense(hidden_size, use_bias=False,
-                                              name='output_transform')
+                                              name="output_transform")
 
   def split_heads(self, x):
     """Split x into different heads, and transpose the resulting value.
@@ -378,7 +378,7 @@ class Attention(tf.layers.Layer):
     Returns:
       A tensor with shape [batch_size, num_heads, length, hidden_size/num_heads]
     """
-    with tf.name_scope('split_heads'):
+    with tf.name_scope("split_heads"):
       batch_size = tf.shape(x)[0]
       length = tf.shape(x)[1]
 
@@ -400,7 +400,7 @@ class Attention(tf.layers.Layer):
     Returns:
       A tensor with shape [batch_size, length, hidden_size]
     """
-    with tf.name_scope('combine_heads'):
+    with tf.name_scope("combine_heads"):
       batch_size = tf.shape(x)[0]
       length = tf.shape(x)[2]
       x = tf.transpose(x, [0, 2, 1, 3])  # --> [batch, length, num_heads, depth]
@@ -413,16 +413,11 @@ class Attention(tf.layers.Layer):
       x: a tensor with shape [batch_size, length_x, hidden_size]
       y: a tensor with shape [batch_size, length_y, hidden_size]
       bias: attention bias that will be added to the result of the dot product.
-<<<<<<< HEAD
-
-    Returns:
-=======
       cache: (Used for decoding) dictionary with Tensors containing results of
         previous attentions. The dictionary must have the following keys/values:
-            {'k': tensor with shape [batch_size, 0, key_channels],
-             'v': tensor with shape [batch_size, 0, value_channels]}
+            {"k": tensor with shape [batch_size, 0, key_channels],
+             "v": tensor with shape [batch_size, 0, value_channels]}
     Return:
->>>>>>> current progress on translate
       Attention layer output with shape [batch_size, length_x, hidden_size]
     """
     # Linearly project the query (q), key (k) and value (v) using different
@@ -435,8 +430,8 @@ class Attention(tf.layers.Layer):
 
     # Save k and v to cache
     if cache is not None:
-      k = cache['k'] = tf.concat([cache['k'], k], axis=1)
-      v = cache['v'] = tf.concat([cache['v'], v], axis=1)
+      k = cache["k"] = tf.concat([cache["k"], k], axis=1)
+      v = cache["v"] = tf.concat([cache["v"], v], axis=1)
 
     # Split q, k, v into heads.
     q = self.split_heads(q)
@@ -450,7 +445,7 @@ class Attention(tf.layers.Layer):
     # Calculate dot product attention
     logits = tf.matmul(q, k, transpose_b=True)
     logits += bias
-    weights = tf.nn.softmax(logits, name='attention_weights')
+    weights = tf.nn.softmax(logits, name="attention_weights")
     if self.train:
       weights = tf.nn.dropout(weights, 1.0 - self.attention_dropout)
     output = tf.matmul(weights, v)
@@ -481,9 +476,9 @@ class FeedFowardNetwork(tf.layers.Layer):
     self.train = train
 
     self.filter_dense_layer = tf.layers.Dense(
-        filter_size, use_bias=True, activation=tf.nn.relu, name='filter_layer')
+        filter_size, use_bias=True, activation=tf.nn.relu, name="filter_layer")
     self.output_dense_layer = tf.layers.Dense(
-        hidden_size, use_bias=True, name='output_layer')
+        hidden_size, use_bias=True, name="output_layer")
 
   def call(self, x, padding=None):
     # Retrieve dynamically known shapes
@@ -491,7 +486,7 @@ class FeedFowardNetwork(tf.layers.Layer):
     length = tf.shape(x)[1]
 
     if padding is not None:
-      with tf.name_scope('remove_padding'):
+      with tf.name_scope("remove_padding"):
         # Flatten padding to [batch_size*length]
         pad_mask = tf.reshape(padding, [-1])
 
@@ -511,7 +506,7 @@ class FeedFowardNetwork(tf.layers.Layer):
     output = self.output_dense_layer(output)
 
     if padding is not None:
-      with tf.name_scope('re_add_padding'):
+      with tf.name_scope("re_add_padding"):
         output = tf.squeeze(output, axis=0)
         output = tf.scatter_nd(
             indices=nonpad_ids,
@@ -530,9 +525,9 @@ class LayerNormalization(tf.layers.Layer):
     self.hidden_size = hidden_size
 
   def build(self, _):
-    self.scale = tf.get_variable('layer_norm_scale', [self.hidden_size],
+    self.scale = tf.get_variable("layer_norm_scale", [self.hidden_size],
                                  initializer=tf.ones_initializer())
-    self.bias = tf.get_variable('layer_norm_bias', [self.hidden_size],
+    self.bias = tf.get_variable("layer_norm_bias", [self.hidden_size],
                                 initializer=tf.zeros_initializer())
     self.built = True
 
@@ -592,10 +587,10 @@ class Encoder(tf.layers.Layer):
       self_attention_layer = layer[0]
       feed_forward_network = layer[1]
 
-      with tf.variable_scope('layer_%d' % n):
-        with tf.variable_scope('self_attention'):
+      with tf.variable_scope("layer_%d" % n):
+        with tf.variable_scope("self_attention"):
           encoder_inputs = self_attention_layer(encoder_inputs, attention_bias)
-        with tf.variable_scope('ffn'):
+        with tf.variable_scope("ffn"):
           encoder_inputs = feed_forward_network(encoder_inputs, inputs_padding)
 
     return self.output_normalization(encoder_inputs)
@@ -629,16 +624,16 @@ class Decoder(tf.layers.Layer):
       enc_dec_attention_layer = layer[1]
       feed_forward_network = layer[2]
       # Run inputs through the sublayers.
-      layer_name = 'layer_%d' % n
+      layer_name = "layer_%d" % n
       layer_cache = cache[layer_name] if cache is not None else None
       with tf.variable_scope(layer_name):
-        with tf.variable_scope('self_attention'):
+        with tf.variable_scope("self_attention"):
           decoder_inputs = self_attention_layer(
               decoder_inputs, decoder_self_attention_bias, cache=layer_cache)
-        with tf.variable_scope('encdec_attention'):
+        with tf.variable_scope("encdec_attention"):
           decoder_inputs = enc_dec_attention_layer(
               decoder_inputs, encoder_outputs, attention_bias)
-        with tf.variable_scope('ffn'):
+        with tf.variable_scope("ffn"):
           decoder_inputs = feed_forward_network(decoder_inputs)
 
     return self.output_normalization(decoder_inputs)
@@ -675,7 +670,7 @@ def get_position_encoding(
 
 def prepare_encoder_inputs(inputs, hidden_size, dropout, train):
   """Preprocess inputs and calculate attention bias from the input padding."""
-  with tf.name_scope('add_pos_encoding'):
+  with tf.name_scope("add_pos_encoding"):
     length = tf.shape(inputs)[1]
     inputs += get_position_encoding(length, hidden_size)
 
@@ -687,10 +682,10 @@ def prepare_encoder_inputs(inputs, hidden_size, dropout, train):
 def prepare_decoder_inputs(targets, hidden_size, dropout=0, train=False):
   """Preprocess targets and calculate the decoder's self attention bias."""
   # Shift targets to the right, and remove the last element
-  with tf.name_scope('shift_targets'):
+  with tf.name_scope("shift_targets"):
     targets = tf.pad(targets, [[0, 0], [1, 0], [0, 0]])[:, :-1, :]
 
-  with tf.name_scope('add_pos_encoding'):
+  with tf.name_scope("add_pos_encoding"):
     length = tf.shape(targets)[1]
     targets += get_position_encoding(length, hidden_size)
 
@@ -712,7 +707,7 @@ def get_decoder_self_attention_bias(length):
   Returns:
     float tensor of shape [1, 1, length, length]
   """
-  with tf.name_scope('decoder_self_attention_bias'):
+  with tf.name_scope("decoder_self_attention_bias"):
     valid_locs = tf.matrix_band_part(tf.ones([length, length]), -1, 0)
     valid_locs = tf.reshape(valid_locs, [1, 1, length, length])
     decoder_bias = -1e9 * (1.0 - valid_locs)
@@ -721,7 +716,7 @@ def get_decoder_self_attention_bias(length):
 
 def get_learning_rate(params):
   """Calculate learning rate with linear warmup and rsqrt decay."""
-  with tf.name_scope('learning_rate'):
+  with tf.name_scope("learning_rate"):
     warmup_steps = tf.to_float(params.learning_rate_warmup_steps)
     step = tf.to_float(tf.train.get_or_create_global_step())
     learning_rate = 2.0 * (params.hidden_size ** -0.5)
@@ -731,14 +726,14 @@ def get_learning_rate(params):
     learning_rate *= tf.rsqrt(tf.maximum(step, warmup_steps))
 
     # Save learning rate value to TensorBoard summary.
-    tf.summary.scalar('learning_rate', learning_rate)
+    tf.summary.scalar("learning_rate", learning_rate)
 
     return learning_rate
 
 
 def get_train_op(loss, params):
   learning_rate = get_learning_rate(params)
-  with tf.variable_scope('get_train_op'):
+  with tf.variable_scope("get_train_op"):
     optimizer = tf.contrib.opt.LazyAdamOptimizer(
         learning_rate,
         beta1=params.optimizer_adam_beta1,
@@ -750,10 +745,10 @@ def get_train_op(loss, params):
     gradients = optimizer.compute_gradients(
         loss, tvars, colocate_gradients_with_ops=True)
     train_op = optimizer.apply_gradients(
-        gradients, global_step=global_step, name='train')
+        gradients, global_step=global_step, name="train")
 
     # Save gradient norm to Tensorboard
-    tf.summary.scalar('global_norm/gradient_norm',
+    tf.summary.scalar("global_norm/gradient_norm",
                       tf.global_norm(list(zip(*gradients))[0]))
 
     return train_op
@@ -761,7 +756,7 @@ def get_train_op(loss, params):
 
 def model_fn(features, labels, mode, params):
   """Train and evaluate transformer model."""
-  with tf.variable_scope('model'):
+  with tf.variable_scope("model"):
     inputs, targets = features, labels
 
     # Create model and get output logits.
@@ -780,12 +775,12 @@ def model_fn(features, labels, mode, params):
     loss = tf.reduce_sum(xentropy * weights) / tf.reduce_sum(weights)
 
     # Save loss to TensorBoard summary.
-    tf.identity(loss, name='loss')
-    tf.summary.scalar('loss', loss)
+    tf.identity(loss, name="loss")
+    tf.summary.scalar("loss", loss)
 
     if mode == tf.estimator.ModeKeys.EVAL:
       return tf.estimator.EstimatorSpec(
-          mode=mode, loss=loss, predictions={'predictions': logits},
+          mode=mode, loss=loss, predictions={"predictions": logits},
           eval_metric_ops=metrics.get_eval_metrics(logits, labels, params))
     else:
       train_op = get_train_op(loss, params)
@@ -797,13 +792,13 @@ def main(_):
   # estimator)
   tf.logging.set_verbosity(tf.logging.INFO)
 
-  if FLAGS.params == 'base':
+  if FLAGS.params == "base":
     params = model_params.TransformerBaseParams
-  elif FLAGS.params == 'big':
+  elif FLAGS.params == "big":
     params = model_params.TransformerBigParams
   else:
-    raise ValueError('Invalid parameter set defined: %s.'
-                     'Expected "base" or "big."' % FLAGS.params)
+    raise ValueError("Invalid parameter set defined: %s."
+                     "Expected 'base' or 'big.'" % FLAGS.params)
 
   # Add flag-defined parameters to params object
   params.data_dir = FLAGS.data_dir
@@ -812,43 +807,54 @@ def main(_):
   estimator = tf.estimator.Estimator(
       model_fn=model_fn, model_dir=FLAGS.model_dir, params=params)
 
-  for _ in xrange(FLAGS.training_steps // FLAGS.eval_interval):
-    estimator.train(dataset.train_input_fn, steps=FLAGS.eval_interval)
-    print('evaluation results:', estimator.evaluate(dataset.eval_input_fn))
+  for _ in xrange(FLAGS.train_steps // FLAGS.steps_between_eval):
+    estimator.train(dataset.train_input_fn, steps=FLAGS.steps_between_eval)
+    print("evaluation results:", estimator.evaluate(dataset.eval_input_fn))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument(
-      '--data_dir', '-dd', type=str, default='/tmp/translate_ende',
-      help='[default: %(default)s] Directory for where the '
-           'translate_ende_wmt32k dataset is saved.',
-      metavar='<DD>')
+      "--data_dir", "-dd", type=str, default="/tmp/translate_ende",
+      help="[default: %(default)s] Directory for where the "
+           "translate_ende_wmt32k dataset is saved.",
+      metavar="<DD>")
   parser.add_argument(
-      '--model_dir', '-md', type=str, default='/tmp/transformer_model',
-      help='[default: %(default)s] Directory to save Transformer model '
-           'training checkpoints',
-      metavar='<MD>')
+      "--model_dir", "-md", type=str, default="/tmp/transformer_model",
+      help="[default: %(default)s] Directory to save Transformer model "
+           "training checkpoints",
+      metavar="<MD>")
   parser.add_argument(
-      '--num_cpu_cores', '-nc', type=int, default=4,
-      help='[default: %(default)s] Number of CPU cores to use in the input '
-           'pipeline.',
-      metavar='<NC>')
-  # TODO: add training epoch argument
+      "--params", "-p", type=str, default="big", choices=["base", "big"],
+      help="[default: %(default)s] Parameter set to use when creating and "
+           "training the model.",
+      metavar="<P>")
   parser.add_argument(
-      '--training_steps', '-ts', type=int, default=250000,
-      help='[default: %(default)s] Total number of training steps.',
-      metavar='<TS>')
-  parser.add_argument(
-      '--eval_interval', '-ei', type=int, default=1000,
-      help='[default: %(default)s] Number of training steps to run between '
-           'evaluations.',
-      metavar='<EI>',)
-  parser.add_argument(
-      '--params', '-p', type=str, default='big', choices=['base', 'big'],
-      help='[default: %(default)s] Parameter set to use when creating and '
-           'training the model.',
-      metavar='<P>')
+      "--num_cpu_cores", "-nc", type=int, default=4,
+      help="[default: %(default)s] Number of CPU cores to use in the input "
+           "pipeline.",
+      metavar="<NC>")
 
+  # Flags for training with epochs (default).
+  parser.add_argument(
+      "--train_epochs", "-te", type=int, default=10,
+      help="[default: %(default)s] The number of epochs used to train.",
+      metavar="<TE>")
+  parser.add_argument(
+      "--epochs_between_eval", "-ebe", type=int, default=1,
+      help="[default: %(default)s] The number of training epochs to run "
+           "between evaluations.",
+      metavar="<TE>")
+
+  # Flags for training with steps (may be used for debugging)
+  parser.add_argument(
+      "--train_steps", "-ts", type=int, default=None,
+      help="[default: %(default)s] Total number of training steps.",
+      metavar="<TS>")
+  parser.add_argument(
+      "--steps_between_eval", "-sbe", type=int, default=1000,
+      help="[default: %(default)s] Number of training steps to run between "
+           "evaluations.",
+      metavar="<SBE>",)
   FLAGS, unparsed = parser.parse_known_args()
   tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
