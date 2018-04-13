@@ -139,7 +139,7 @@ def main(unused_argv):
     params = model_params.TransformerBigParams
   else:
     raise ValueError("Invalid parameter set defined: %s."
-                     "Expected "base" or "big."" % FLAGS.params)
+                     "Expected 'base' or 'big.'" % FLAGS.params)
 
   # Set up estimator and params
   params.beam_size = _BEAM_SIZE
