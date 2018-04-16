@@ -7,27 +7,86 @@ Transformer's overall structure follows the standard encoder-decoder pattern. Th
 
 The model also applies embeddings on the input and output tokens, and adds a constant positional encoding. The positional encoding adds information about the position of each token.
 
-## Training the model
-1. **Download and preprocess data**
+## Walkthrough
 
-   Run `data_download` to download and preprocess the data. After the data is downloaded and extracted, the training data is used to generate a vocabulary of subtokens. The evaluation and training strings are tokenized, and the resulting data is sharded, shuffled, and saved as TFRecords.
+Below are the commands for running the Transformer model. See the [Detailed instrutions][#detailed-instructions] for more details on running the model.
 
+```
+PARAMS=big
+DATA_DIR=$HOME/transformer/data
+MODEL_DIR=$HOME/transformer/model_$PARAMS
+
+# Download dataset for computing BLEU score reported in the paper
+wget https://nlp.stanford.edu/projects/nmt/data/wmt14.en-de/newstest2014.en
+wget https://nlp.stanford.edu/projects/nmt/data/wmt14.en-de/newstest2014.de
+
+# Download training/evaluation datasets
+python data_download.py --data_dir=$DATA_DIR
+
+# Train the model for 10 epochs, and evaluate after every epoch.
+python transformer.py --data_dir=$DATA_DIR --model_dir=$MODEL_DIR \
+   --params=$PARAMS  # TODO: add BLEU flags
+
+# Run during training in a separate process to get continuous updates,
+# or after training is complete.
+tensorboard --logdir=$MODEL_DIR
+```
+
+## Benchmarks
+### Training times
+
+Currently, both big and base params run on a single GPU. The measurements below
+are reported from running the model on a P100 GPU.
+
+Params | batches/sec | batches per epoch | time per epoch
+--- | --- | --- | ---
+base | 4.8 | 83244 | 4 hr
+big | 1.1 | 41365 | 10 hr
+
+### Evaluation results
+Below are the case-insensitive BLEU scores after 10 epochs.
+
+Params | Score
+--- | --- |
+base | 20.5
+big | 26.1
+
+
+
+## Detailed instructions
+
+
+0. ### Export variables (optional)
+
+   Export the following variables, or modify the values in each of the snippets below:
    ```
-   python data_download.py --data_dir=/path/to/data
+   PARAMS=big
+   DATA_DIR=$HOME/transformer/data
+   MODEL_DIR=$HOME/transformer/model_$PARAMS
+   ```
+
+1. ### Download and preprocess datasets for training and evaluation
+
+   [`data_download.py`](data_download.py) downloads and preprocesses the training and evaluation WMT datasets. After the data is downloaded and extracted, the training data is used to generate a vocabulary of subtokens. The evaluation and training strings are tokenized, and the resulting data is sharded, shuffled, and saved as TFRecords.
+
+   1.75GB of compressed data will be downloaded. In total, the raw files (compressed, extracted, and combined files) take up 8.4GB of disk space. The resulting TFRecord and vocabulary files are 722MB. The script takes around 40 minutes to run, with the bulk of the time spent downloading and ~15 minutes spent on preprocessing.
+
+   Command to run:
+   ```
+   python data_download.py --data_dir=$DATA_DIR
    ```
 
    Arguments:
-    * `--data_dir`: Path where the preprocessed TFRecord data, and vocab file will be saved.
-    * Use the `--help` or `-h` flag to get a full list of possible arguments.
+   * `--data_dir`: Path where the preprocessed TFRecord data, and vocab file will be saved.
+   * Use the `--help` or `-h` flag to get a full list of possible arguments.
 
-     1.75GB of compressed data will be downloaded. In total, the raw files (compressed, extracted, and combined files) take up 8.4GB of disk space. The resulting TFRecord and vocabulary files are 722MB. The script takes around 40 minutes to run, with the bulk of the time spent downloading and ~15 minutes spent on preprocessing.
+2. ### Model training and evaluation
 
-2. **Model training and evaluation**
+   [`transformer.py`](transformer.py) creates a Transformer model graph using Tensorflow Estimator, and trains it.
 
-   Run `transformer.py`, which creates a Transformer model graph using Tensorflow Estimator.
-
+   Command to run:
    ```
-   python transformer.py --data_dir=/path/to/data --model_dir=/path/to/model --params=base
+   python transformer.py --data_dir=$DATA_DIR --model_dir=$MODEL_DIR --params=$PARAMS
    ```
 
    Arguments:
@@ -36,21 +95,36 @@ The model also applies embeddings on the input and output tokens, and adds a con
    * `--params`: Parameter set to use when creating and training the model. Options are `base` and `big` (default).
    * Use the `--help` or `-h` flag to get a full list of possible arguments.
 
+   #### Training Schedule
 
-   Training and evaluation metrics (loss, accuracy, approximate BLEU score, etc.) are saved using `tf.summary`, and can be displayed in the browser using Tensorboard.
+   By default, the model will train for 10 epochs, and evaluate after every epoch. The training schedule may be defined through the flags:
+   * Training with epochs (default):
+     * `--train_epochs`: The total number of complete passes to make through the dataset
+     * `--epochs_between_eval`: The number of epochs to train between evaluations.
+   * Training with steps:
+     * `--train_steps`: sets the total number of training steps to run.
+     * `--steps_between_eval`: Number of training steps to run between evaluations.
+
+   Only one of `train_epochs` or `train_steps` may be set. Since the default option is to evaluate the model after training for an epoch, it may take 4 or more hours between model evaluations. To get more frequent evaluations, use the flags `--train_steps=250000 --steps_between_eval=1000`.
+
+   Note: At the beginning of each training session, the training dataset is reloaded and shuffled. Stopping the training before completing an epoch may result in worse model quality, due to the chance that some examples may be seen more than others. Therefore, it is recommended to use epochs when the model quality is important.
+
+   #### Compute official BLEU score during model evaluation
+
+   (TODO)
+
+   #### Tensorboard
+   Training and evaluation metrics (loss, accuracy, approximate BLEU score, etc.) are logged, and can be displayed in the browser using Tensorboard.
    ```
-   tensorboard --logdir=/path/to/model
+   tensorboard --logdir=$MODEL_DIR
    ```
    The values are displayed at [localhost:6006].
 
-3. **Translate using the model**
+3. ### Translate using the model
    (TODO)
 
-4. **Compute official BLEU score**
+4. ### Compute official BLEU score
    (TODO)
-
-## Benchmarks
-(TODO)
 
 ## Implementation overview
 
@@ -82,6 +156,13 @@ A brief look at each component in the code:
 4. **BLEU computation**
    * [`compute_bleu.py`](compute_bleu.py): (TODO)
 
+## Term definitions
+
+**Steps / Epochs**:
+* Step: unit for processing a single batch of data
+* Epoch: a complete run through the dataset
+
+Example: Consider a training a dataset with 100 examples that is divided into 20 batches with 5 examples per batch. A single training step trains the model on one batch. After 20 training steps, the model will have trained on every batch in the dataset, or one epoch.
+
+
 **Subtoken**: Words are referred as tokens, and parts of words are referred as 'subtokens'. For example, the word 'inclined' may be split into `['incline', 'd_']`. The '\_' indicates the end of the token. The subtoken vocabulary list is guaranteed to contain the alphabet (including numbers and special characters), so all words can be tokenized.
-
-

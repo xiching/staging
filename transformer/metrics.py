@@ -37,7 +37,7 @@ import tensorflow as tf
 
 def _pad_tensors_to_same_length(x, y):
   """Pad x and y so that the results have the same length (second dimension)."""
-  with tf.name_scope('pad_to_same_length'):
+  with tf.name_scope("pad_to_same_length"):
     x_length = tf.shape(x)[1]
     y_length = tf.shape(y)[1]
 
@@ -60,11 +60,11 @@ def padded_cross_entropy_loss(logits, labels, smoothing, vocab_size):
     Returns a float32 tensor with shape
       [batch_size, max(length_logits, length_labels)]
   """
-  with tf.name_scope('loss', [logits, labels]):
+  with tf.name_scope("loss", [logits, labels]):
     logits, labels = _pad_tensors_to_same_length(logits, labels)
 
     # Calculate smoothing cross entropy
-    with tf.name_scope('smoothing_cross_entropy', [logits, labels]):
+    with tf.name_scope("smoothing_cross_entropy", [logits, labels]):
       confidence = 1.0 - smoothing
       low_confidence = (1.0 - confidence) / tf.to_float(vocab_size - 1)
       soft_targets = tf.one_hot(
@@ -111,27 +111,27 @@ def _convert_to_eval_metric(metric_fn):
 def get_eval_metrics(logits, labels, params):
   """Return dictionary of model evaluation metrics"""
   metrics = {
-    'accuracy': _convert_to_eval_metric(padded_accuracy)(logits, labels),
-    'accuracy_top5': _convert_to_eval_metric(padded_accuracy_top5)(
+    "accuracy": _convert_to_eval_metric(padded_accuracy)(logits, labels),
+    "accuracy_top5": _convert_to_eval_metric(padded_accuracy_top5)(
         logits, labels),
-    'accuracy_per_sequence': _convert_to_eval_metric(padded_sequence_accuracy)(
+    "accuracy_per_sequence": _convert_to_eval_metric(padded_sequence_accuracy)(
         logits, labels),
-    'neg_log_perplexity': _convert_to_eval_metric(padded_neg_log_perplexity)(
+    "neg_log_perplexity": _convert_to_eval_metric(padded_neg_log_perplexity)(
         logits, labels, params.vocab_size),
-    'approx_bleu_score': _convert_to_eval_metric(bleu_score)(logits, labels),
-    'rouge_2_fscore': _convert_to_eval_metric(rouge_2_fscore)(logits, labels),
-    'rouge_L_fscore': _convert_to_eval_metric(rouge_l_fscore)(logits, labels),
+    "approx_bleu_score": _convert_to_eval_metric(bleu_score)(logits, labels),
+    "rouge_2_fscore": _convert_to_eval_metric(rouge_2_fscore)(logits, labels),
+    "rouge_L_fscore": _convert_to_eval_metric(rouge_l_fscore)(logits, labels),
   }
 
-  # Prefix each of the metric names with 'metrics/'. This allows the metric
-  # graphs to display under the 'metrics' category in TensorBoard.
-  metrics = {'metrics/%s' % k: v for k, v in six.iteritems(metrics)}
+  # Prefix each of the metric names with "metrics/". This allows the metric
+  # graphs to display under the "metrics" category in TensorBoard.
+  metrics = {"metrics/%s" % k: v for k, v in six.iteritems(metrics)}
   return metrics
 
 
 def padded_accuracy(logits, labels):
   """Percentage of times that predictions matches labels on non-0s."""
-  with tf.variable_scope('padded_accuracy', values=[logits, labels]):
+  with tf.variable_scope("padded_accuracy", values=[logits, labels]):
     logits, labels = _pad_tensors_to_same_length(logits, labels)
     weights = tf.to_float(tf.not_equal(labels, 0))
     outputs = tf.to_int32(tf.argmax(logits, axis=-1))
@@ -141,7 +141,7 @@ def padded_accuracy(logits, labels):
 
 def padded_accuracy_topk(logits, labels, k):
   """Percentage of times that top-k predictions matches labels on non-0s."""
-  with tf.variable_scope('padded_accuracy_topk', values=[logits, labels]):
+  with tf.variable_scope("padded_accuracy_topk", values=[logits, labels]):
     logits, labels = _pad_tensors_to_same_length(logits, labels)
     weights = tf.to_float(tf.not_equal(labels, 0))
     effective_k = tf.minimum(k, tf.shape(logits)[-1])
@@ -161,7 +161,7 @@ def padded_accuracy_top5(logits, labels):
 
 def padded_sequence_accuracy(logits, labels):
   """Percentage of times that predictions matches labels everywhere (non-0)."""
-  with tf.variable_scope('padded_sequence_accuracy', values=[logits, labels]):
+  with tf.variable_scope("padded_sequence_accuracy", values=[logits, labels]):
     logits, labels = _pad_tensors_to_same_length(logits, labels)
     weights = tf.to_float(tf.not_equal(labels, 0))
     outputs = tf.to_int32(tf.argmax(logits, axis=-1))

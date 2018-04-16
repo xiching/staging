@@ -12,32 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Input pipeline for the transformer model.
-
-The input pipeline reads, preprocesses, and batches examples. Preprocessing
-consists of decoding examples and filtering out examples with lengths that are
-too long.
+"""Input pipeline for the transformer model to read, filter, and batch examples.
 
 Two things to note in the pipeline:
 
 1. Batching scheme
 
    The examples encoded in the TFRecord files contain data in the format:
-     {'inputs': [variable length array of integers],
-      'targets: [variable length array of integers]}
+     {"inputs": [variable length array of integers],
+      "targets": [variable length array of integers]}
    Where integers in the arrays refer to tokens in the English and German vocab
    file (named `vocab.ende.32768`).
 
    Prior to batching, elements in the dataset are grouped by length (max between
-   'inputs' and 'targets' length). Each group is then batched such that:
+   "inputs" and "targets" length). Each group is then batched such that:
      group_batch_size * length <= batch_size.
 
    Another way to view batch_size is the maximum number of tokens in each batch.
 
    Once batched, each element in the dataset will have the shape:
-     {'inputs': [group_batch_size, padded_input_length],
-      'targets': [group_batch_size, padded_target_length]}
-   Lengths are padded to the longest 'inputs' or 'targets' sequence in the batch
+     {"inputs": [group_batch_size, padded_input_length],
+      "targets": [group_batch_size, padded_target_length]}
+   Lengths are padded to the longest "inputs" or "targets" sequence in the batch
    (padded_input_length and padded_target_length can be different).
 
    This batching scheme decreases the fraction of padding tokens per training
@@ -49,9 +45,7 @@ Two things to note in the pipeline:
    is the list of training files. Second, while reading records using
    `parallel_interleave`, the `sloppy` argument is used to generate randomness
    in the order of the examples.
-
 """
-
 import os
 
 import tensorflow as tf
@@ -73,28 +67,27 @@ def _load_records(filename):
   return tf.data.TFRecordDataset(filename, buffer_size=_READ_RECORD_BUFFER)
 
 
-def _decode_example(serialized_example):
-  """Return a dict of Tensors from a serialized tf.Example."""
+def _parse_example(serialized_example):
+  """Return inputs and targets Tensors from a serialized tf.Example."""
   data_fields = {
-      'inputs': tf.VarLenFeature(tf.int64),
-      'targets': tf.VarLenFeature(tf.int64)
+      "inputs": tf.VarLenFeature(tf.int64),
+      "targets": tf.VarLenFeature(tf.int64)
   }
   parsed = tf.parse_single_example(serialized_example, data_fields)
-  parsed['inputs'] = tf.sparse_tensor_to_dense(parsed['inputs'])
-  parsed['targets'] = tf.sparse_tensor_to_dense(parsed['targets'])
-  return parsed
+  inputs = tf.sparse_tensor_to_dense(parsed["inputs"])
+  targets = tf.sparse_tensor_to_dense(parsed["targets"])
+  return inputs, targets
 
 
 def _filter_max_length(example, max_length=256):
   """Indicates whether the example's length is lower than the maximum length."""
-  return tf.logical_and(tf.size(example['inputs']) <= max_length,
-                        tf.size(example['targets']) <= max_length)
+  return tf.logical_and(tf.size(example[0]) <= max_length,
+                        tf.size(example[1]) <= max_length)
 
 
 def _get_example_length(example):
   """Returns the maximum length between the example inputs and targets."""
-  length = tf.maximum(tf.shape(example['inputs'])[0],
-                      tf.shape(example['targets'])[0])
+  length = tf.maximum(tf.shape(example[0])[0], tf.shape(example[1])[0])
   return length
 
 
@@ -160,9 +153,9 @@ def _batch_examples(dataset, batch_size, max_length):
   # bucket_id will be a tensor, so convert this list to a tensor as well.
   bucket_batch_sizes = tf.constant(bucket_batch_sizes, dtype=tf.int64)
 
-  def example_to_bucket_id(example):
+  def example_to_bucket_id(example_input, example_target):
     """Return int64 bucket id for this example, calculated based on length."""
-    seq_length = _get_example_length(example)
+    seq_length = _get_example_length((example_input, example_target))
 
     # TODO: investigate whether removing code branching improves performance.
     conditions_c = tf.logical_and(
@@ -182,8 +175,7 @@ def _batch_examples(dataset, batch_size, max_length):
     # Batch the dataset and add padding so that all input sequences in the
     # examples have the same length, and all target sequences have the same
     # lengths as well. Resulting lengths of inputs and targets can differ.
-    return grouped_dataset.padded_batch(
-        bucket_batch_size, {'inputs': [None], 'targets': [None]})
+    return grouped_dataset.padded_batch(bucket_batch_size, ([None], [None]))
 
   return dataset.apply(tf.contrib.data.group_by_window(
       key_func=example_to_bucket_id,
@@ -192,8 +184,9 @@ def _batch_examples(dataset, batch_size, max_length):
       window_size_func=window_size_fn))
 
 
-def _load_data(file_pattern, batch_size, max_length, shuffle, num_cpu_cores):
-  """Create a dataset where each item is a dict of 'inputs' and 'targets'.
+def _read_and_batch_from_files(
+    file_pattern, batch_size, max_length, num_cpu_cores, shuffle, repeat):
+  """Create dataset where each item is a dict of "inputs" and "targets".
 
   Args:
     file_pattern: String used to match the input TFRecord files.
@@ -217,17 +210,17 @@ def _load_data(file_pattern, batch_size, max_length, shuffle, num_cpu_cores):
       tf.contrib.data.parallel_interleave(
           _load_records, sloppy=shuffle, cycle_length=num_cpu_cores))
 
-  # Decode each examples into dictionary elements
+  # Parse each tf.Example into a dictionary
   # TODO: Look into prefetch_input_elements for performance optimization.
-  dataset = dataset.map(_decode_example,
+  dataset = dataset.map(_parse_example,
                         num_parallel_calls=num_cpu_cores)
 
   # Remove examples where the input or target length exceeds the maximum length,
-  dataset = dataset.filter(lambda x: _filter_max_length(x, max_length))
+  dataset = dataset.filter(lambda x, y: _filter_max_length((x, y), max_length))
 
   # Batch such that each batch has examples of similar length.
   dataset = _batch_examples(dataset, batch_size, max_length)
-  dataset = dataset.repeat(1)
+  dataset = dataset.repeat(repeat)
 
   # Prefetch the next element to improve speed of input pipeline.
   dataset = dataset.prefetch(1)
@@ -235,24 +228,16 @@ def _load_data(file_pattern, batch_size, max_length, shuffle, num_cpu_cores):
 
 
 def train_input_fn(params):
-  """Load and return batched examples for use during training."""
-  file_pattern = os.path.join(getattr(params, 'data_dir', ''), '*train*')
-  x = _load_data(file_pattern,
-                 batch_size=params.batch_size,
-                 max_length=params.max_length,
-                 shuffle=True,
-                 num_cpu_cores=params.num_cpu_cores
-                ).make_one_shot_iterator().get_next()
-  return x['inputs'], x['targets']
+  """Load and return dataset of batched examples for use during training."""
+  file_pattern = os.path.join(getattr(params, "data_dir", ""), "*train*")
+  return _read_and_batch_from_files(
+      file_pattern, params.batch_size, params.max_length, params.num_cpu_cores,
+      shuffle=True, repeat=params.repeat_dataset)
 
 
 def eval_input_fn(params):
-  """Load and return batched examples for use during evaluation."""
-  file_pattern = os.path.join(getattr(params, 'data_dir', ''), '*dev*')
-  x = _load_data(file_pattern,
-                 batch_size=params.batch_size,
-                 max_length=params.max_length,
-                 shuffle=False,
-                 num_cpu_cores=params.num_cpu_cores
-                ).make_one_shot_iterator().get_next()
-  return x['inputs'], x['targets']
+  """Load and return dataset of batched examples for use during evaluation."""
+  file_pattern = os.path.join(getattr(params, "data_dir", ""), "*dev*")
+  return _read_and_batch_from_files(
+      file_pattern, params.batch_size, params.max_length, params.num_cpu_cores,
+      shuffle=False, repeat=1)
