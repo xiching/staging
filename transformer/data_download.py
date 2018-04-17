@@ -28,7 +28,7 @@ import urllib
 import six
 import tensorflow as tf
 
-import tokenizer
+from utils import tokenizer
 
 # Data sources for training/evaluating the transformer translation model.
 # If any of the training sources are changed, then either:

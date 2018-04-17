@@ -46,6 +46,11 @@ Two things to note in the pipeline:
    `parallel_interleave`, the `sloppy` argument is used to generate randomness
    in the order of the examples.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import os
 
 import tensorflow as tf
