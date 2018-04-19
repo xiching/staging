@@ -19,17 +19,25 @@ from __future__ import division
 from __future__ import print_function
 
 import argparse
+import os
 import sys
+import tempfile
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-from utils import dataset
-from utils import metrics
+import compute_bleu
+from data_download import VOCAB_FILE
 from model import transformer
 from model import model_params
+import translate
+from utils import dataset
+from utils import metrics
+from utils import tokenizer
 
 DEFAULT_TRAIN_EPOCHS = 10
+BLEU_DIR = "bleu"
+INF = 1e9
 
 
 def model_fn(features, labels, mode, params):
@@ -113,10 +121,54 @@ def get_train_op(loss, params):
     return train_op
 
 
+def translate_and_compute_bleu(estimator, subtokenizer, bleu_source, bleu_ref):
+  """Translate file and report the cased and uncased bleu scores."""
+  # Create temporary file to store translation.
+  tmp = tempfile.NamedTemporaryFile(delete=False)
+  tmp_filename = tmp.name
+
+  translate.translate_file(
+      estimator, subtokenizer, bleu_source, output_file=tmp_filename,
+      print_all_translations=False)
+
+  # Compute uncased and cased bleu scores.
+  uncased_score = compute_bleu.bleu_wrapper(bleu_ref, tmp_filename, False)
+  cased_score = compute_bleu.bleu_wrapper(bleu_ref, tmp_filename, True)
+  os.remove(tmp_filename)
+  return uncased_score, cased_score
+
+
+def get_global_step(estimator):
+  """Return estimator's last checkpoint."""
+  return int(estimator.latest_checkpoint().split("-")[-1])
+
+
+def evaluate_and_log_bleu(estimator, bleu_writer, bleu_source, bleu_ref):
+  """Calculate and record the BLEU score."""
+  subtokenizer = tokenizer.Subtokenizer(
+      os.path.join(FLAGS.data_dir, FLAGS.vocab_file))
+
+  uncased_score, cased_score = translate_and_compute_bleu(
+      estimator, subtokenizer, bleu_source, bleu_ref)
+
+  print("Bleu score (uncased):", uncased_score)
+  print("Bleu score (cased):", cased_score)
+
+  summary = tf.Summary(value=[
+      tf.Summary.Value(tag="bleu/uncased", simple_value=uncased_score),
+      tf.Summary.Value(tag="bleu/cased", simple_value=cased_score),
+  ])
+
+  bleu_writer.add_summary(summary, get_global_step(estimator))
+  bleu_writer.flush()
+  return uncased_score, cased_score
+
+
 def train_schedule(
     estimator, train_eval_iterations, single_iteration_train_steps=None,
-    single_iteration_train_epochs=None):
-  """Train and evaluate model.
+    single_iteration_train_epochs=None, bleu_source=None, bleu_ref=None,
+    bleu_threshold=None):
+  """Train and evaluate model, and optionally compute model's BLEU score.
 
   **Step vs. Epoch vs. Iteration**
 
@@ -135,42 +187,64 @@ def train_schedule(
     - A single iteration:
       1. trains the model for a specific number of steps or epochs.
       2. evaluates the model.
+      3. (if source and ref files are provided) compute BLEU score.
 
-  This function runs through multiple train+eval iterations.
+  This function runs through multiple train+eval+bleu iterations.
 
   Args:
     estimator: tf.Estimator containing model to train.
     train_eval_iterations: Number of times to repeat the train+eval iteration.
     single_iteration_train_steps: Number of steps to train in one iteration.
     single_iteration_train_epochs: Number of epochs to train in one iteration.
+    bleu_source: File containing text to be translated for BLEU calculation.
+    bleu_ref: File containing reference translations for BLEU calculation.
+    bleu_threshold: minimum BLEU score before training is stopped.
 
   Raises:
     ValueError: if both or none of single_iteration_train_steps and
       single_iteration_train_epochs were defined.
   """
-  # Print out training schedule, and ensure that exactly one of
-  # single_iteration_train_steps and single_iteration_train_epochs is defined.
-  print("Training schedule:")
-
+  # Ensure that exactly one of single_iteration_train_steps and
+  # single_iteration_train_epochs is defined.
   if single_iteration_train_steps is None:
     if single_iteration_train_epochs is None:
       raise ValueError(
           "Exactly one of single_iteration_train_steps or "
           "single_iteration_train_epochs must be defined. Both were none.")
-
-    print("\t1. Train for %d epochs." % single_iteration_train_epochs)
   else:
     if single_iteration_train_epochs is not None:
       raise ValueError(
           "Exactly one of single_iteration_train_steps or "
           "single_iteration_train_epochs must be defined. Both were defined.")
 
+  evaluate_bleu = bleu_source is not None and bleu_ref is not None
+
+  # Print out training schedule
+  print("Training schedule:")
+  if single_iteration_train_epochs is not None:
+    print("\t1. Train for %d epochs." % single_iteration_train_epochs)
+  else:
     print("\t1. Train for %d steps." % single_iteration_train_steps)
-
   print("\t2. Evaluate model.")
-  print("Repeat above steps %d times." % train_eval_iterations)
+  if evaluate_bleu:
+    print("\t3. Compute BLEU score.")
+    if bleu_threshold is not None:
+      print("Repeat above steps until the BLEU score reaches", bleu_threshold)
+  if not evaluate_bleu or bleu_threshold is None:
+    print("Repeat above steps %d times." % train_eval_iterations)
 
+  if evaluate_bleu:
+    # Set summary writer to log bleu score.
+    bleu_writer = tf.summary.FileWriter(
+        os.path.join(estimator.model_dir, BLEU_DIR))
+    if bleu_threshold is not None:
+      # Change loop stopping condition if bleu_threshold is defined.
+      train_eval_iterations = INF
+
+  # Loop training/evaluation/bleu cycles
   for i in xrange(train_eval_iterations):
+    print("Starting iteration", i + 1)
+
     # Train the model for single_iteration_train_steps or until the input fn
     # runs out of examples (if single_iteration_train_steps is None).
     estimator.train(dataset.train_input_fn, steps=single_iteration_train_steps)
@@ -178,6 +252,13 @@ def train_schedule(
     eval_results = estimator.evaluate(dataset.eval_input_fn)
     print("Evaluation results (iter %d/%d):" % (i + 1, train_eval_iterations),
           eval_results)
+
+    if evaluate_bleu:
+      uncased_score, _ = evaluate_and_log_bleu(
+          estimator, bleu_writer, bleu_source, bleu_ref)
+      if bleu_threshold is not None and uncased_score < bleu_threshold:
+        bleu_writer.close()
+        break
 
 
 def main(_):
@@ -208,6 +289,13 @@ def main(_):
     single_iteration_train_steps = None
     single_iteration_train_epochs = FLAGS.epochs_between_eval
 
+  # Make sure that the BLEU source and ref files if set
+  if FLAGS.bleu_source is not None and FLAGS.bleu_ref is not None:
+    if not tf.gfile.Exists(FLAGS.bleu_source):
+      raise ValueError("BLEU source file %s does not exist" % FLAGS.bleu_source)
+    if not tf.gfile.Exists(FLAGS.bleu_ref):
+      raise ValueError("BLEU source file %s does not exist" % FLAGS.bleu_ref)
+
   # Add flag-defined parameters to params object
   params.data_dir = FLAGS.data_dir
   params.num_cpu_cores = FLAGS.num_cpu_cores
@@ -218,16 +306,21 @@ def main(_):
       model_fn=model_fn, model_dir=FLAGS.model_dir, params=params)
   train_schedule(
       estimator, train_eval_iterations, single_iteration_train_steps,
-      single_iteration_train_epochs)
+      single_iteration_train_epochs, FLAGS.bleu_source, FLAGS.bleu_ref,
+      FLAGS.bleu_threshold)
 
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument(
       "--data_dir", "-dd", type=str, default="/tmp/translate_ende",
-      help="[default: %(default)s] Directory for where the "
-           "translate_ende_wmt32k dataset is saved.",
+      help="[default: %(default)s] Directory containing training and "
+           "evaluation data, and vocab file used for encoding.",
       metavar="<DD>")
+  parser.add_argument(
+      "--vocab_file", "-vf", type=str, default=VOCAB_FILE,
+      help="[default: %(default)s] Name of vocabulary file.",
+      metavar="<vf>")
   parser.add_argument(
       "--model_dir", "-md", type=str, default="/tmp/transformer_model",
       help="[default: %(default)s] Directory to save Transformer model "
@@ -249,7 +342,7 @@ if __name__ == "__main__":
       "--train_epochs", "-te", type=int, default=None,
       help="The number of epochs used to train. If both --train_epochs and "
            "--train_steps are not set, the model will train for %d epochs." %
-           DEFAULT_TRAIN_EPOCHS,
+      DEFAULT_TRAIN_EPOCHS,
       metavar="<TE>")
   parser.add_argument(
       "--epochs_between_eval", "-ebe", type=int, default=1,
@@ -262,13 +355,33 @@ if __name__ == "__main__":
       "--train_steps", "-ts", type=int, default=None,
       help="Total number of training steps. If both --train_epochs and "
            "--train_steps are not set, the model will train for %d epochs." %
-           DEFAULT_TRAIN_EPOCHS,
+      DEFAULT_TRAIN_EPOCHS,
       metavar="<TS>")
   parser.add_argument(
       "--steps_between_eval", "-sbe", type=int, default=1000,
       help="[default: %(default)s] Number of training steps to run between "
            "evaluations.",
       metavar="<SBE>")
+
+  # BLEU score computation
+  parser.add_argument(
+      "--bleu_source", "-bs", type=str, default=None,
+      help="Path to source file containing text translate when calculating the "
+           "official BLEU score. Both --bleu_source and --bleu_ref must be "
+           "set. The BLEU score will be calculated during model evaluation.",
+      metavar="<BS>")
+  parser.add_argument(
+      "--bleu_ref", "-br", type=str, default=None,
+      help="Path to file containing the reference translation for calculating "
+           "the official BLEU score. Both --bleu_source and --bleu_ref must be "
+           "set. The BLEU score will be calculated during model evaluation.",
+      metavar="<BR>")
+  parser.add_argument(
+      "--bleu_threshold", "-bt", type=float, default=None,
+      help="Stop training when the uncased BLEU score reaches this value. "
+           "Setting this overrides the total number of steps or epochs set by "
+           "--train_steps or --train_epochs.",
+      metavar="<BT>")
 
   FLAGS, unparsed = parser.parse_known_args()
   tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)

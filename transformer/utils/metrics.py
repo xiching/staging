@@ -29,9 +29,9 @@ from __future__ import print_function
 
 import collections
 import math
-import six
 
 import numpy as np
+import six
 import tensorflow as tf
 
 
@@ -109,18 +109,18 @@ def _convert_to_eval_metric(metric_fn):
 
 
 def get_eval_metrics(logits, labels, params):
-  """Return dictionary of model evaluation metrics"""
+  """Return dictionary of model evaluation metrics."""
   metrics = {
-    "accuracy": _convert_to_eval_metric(padded_accuracy)(logits, labels),
-    "accuracy_top5": _convert_to_eval_metric(padded_accuracy_top5)(
-        logits, labels),
-    "accuracy_per_sequence": _convert_to_eval_metric(padded_sequence_accuracy)(
-        logits, labels),
-    "neg_log_perplexity": _convert_to_eval_metric(padded_neg_log_perplexity)(
-        logits, labels, params.vocab_size),
-    "approx_bleu_score": _convert_to_eval_metric(bleu_score)(logits, labels),
-    "rouge_2_fscore": _convert_to_eval_metric(rouge_2_fscore)(logits, labels),
-    "rouge_L_fscore": _convert_to_eval_metric(rouge_l_fscore)(logits, labels),
+      "accuracy": _convert_to_eval_metric(padded_accuracy)(logits, labels),
+      "accuracy_top5": _convert_to_eval_metric(padded_accuracy_top5)(
+          logits, labels),
+      "accuracy_per_sequence": _convert_to_eval_metric(
+          padded_sequence_accuracy)(logits, labels),
+      "neg_log_perplexity": _convert_to_eval_metric(padded_neg_log_perplexity)(
+          logits, labels, params.vocab_size),
+      "approx_bleu_score": _convert_to_eval_metric(bleu_score)(logits, labels),
+      "rouge_2_fscore": _convert_to_eval_metric(rouge_2_fscore)(logits, labels),
+      "rouge_L_fscore": _convert_to_eval_metric(rouge_l_fscore)(logits, labels),
   }
 
   # Prefix each of the metric names with "metrics/". This allows the metric
@@ -218,10 +218,8 @@ def _get_ngrams_with_counter(segment, max_order):
   return ngram_counts
 
 
-def compute_bleu(reference_corpus,
-    translation_corpus,
-    max_order=4,
-    use_bp=True):
+def compute_bleu(reference_corpus, translation_corpus, max_order=4,
+                 use_bp=True):
   """Computes BLEU score of translated segments against one or more references.
 
   Args:
@@ -258,7 +256,7 @@ def compute_bleu(reference_corpus,
       matches_by_order[len(ngram) - 1] += overlap[ngram]
     for ngram in translation_ngram_counts:
       possible_matches_by_order[len(ngram) - 1] += translation_ngram_counts[
-        ngram]
+          ngram]
 
   precisions = [0] * max_order
   smooth = 1.0
@@ -268,7 +266,7 @@ def compute_bleu(reference_corpus,
       precisions[i] = float(matches_by_order[i]) / possible_matches_by_order[i]
       if matches_by_order[i] > 0:
         precisions[i] = float(matches_by_order[i]) / possible_matches_by_order[
-          i]
+            i]
       else:
         smooth *= 2
         precisions[i] = 1.0 / (smooth * possible_matches_by_order[i])

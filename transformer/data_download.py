@@ -69,7 +69,7 @@ _EVAL_DATA_SOURCES = [
 # Vocabulary constants
 _TARGET_VOCAB_SIZE = 32768  # Number of subtokens in the vocabulary list.
 _TARGET_THRESHOLD = 327  # Accept vocabulary if size is within this threshold
-_VOCAB_FILE = "vocab.ende.%d" % _TARGET_VOCAB_SIZE
+VOCAB_FILE = "vocab.ende.%d" % _TARGET_VOCAB_SIZE
 
 # Strings to inclue in the generated files.
 _PREFIX = "wmt32k"
@@ -374,7 +374,7 @@ def main(unused_argv):
   # Create subtokenizer based on the training files.
   tf.logging.info("Step 2/4: Creating subtokenizer and building vocabulary")
   train_files_flat = train_files["inputs"] + train_files["targets"]
-  vocab_file = os.path.join(FLAGS.data_dir, _VOCAB_FILE)
+  vocab_file = os.path.join(FLAGS.data_dir, VOCAB_FILE)
   subtokenizer = tokenizer.Subtokenizer.init_from_files(
       vocab_file, train_files_flat, _TARGET_VOCAB_SIZE, _TARGET_THRESHOLD,
       min_count=None if FLAGS.search else _TRAIN_DATA_MIN_COUNT)

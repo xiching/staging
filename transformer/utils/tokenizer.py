@@ -23,6 +23,7 @@ import re
 import sys
 import unicodedata
 
+import numpy as np
 import six
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
@@ -146,6 +147,11 @@ class Subtokenizer(object):
 
   def decode(self, subtokens):
     """Converts list of int subtokens ids into a string."""
+    if isinstance(subtokens, np.ndarray):
+      # Note that list(subtokens) converts subtokens to a python list, but the
+      # items remain as np.int32. This converts both the array and its items.
+      subtokens = subtokens.tolist()
+
     if not subtokens:
       return ""
 

@@ -197,8 +197,10 @@ def _read_and_batch_from_files(
     file_pattern: String used to match the input TFRecord files.
     batch_size: Maximum number of tokens per batch of examples
     max_length: Maximum number of tokens per example
-    shuffle: If true, randomizes order of elements.
     num_cpu_cores: Number of cpu cores for parallel input processing.
+    shuffle: If true, randomizes order of elements.
+    repeat: Number of times to repeat the dataset. If None, the dataset is
+      repeated forever.
 
   Returns:
     tf.data.Dataset object containing examples loaded from the files.

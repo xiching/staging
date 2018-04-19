@@ -20,6 +20,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
+
 class FeedFowardNetwork(tf.layers.Layer):
   """Fully connected feedforward network."""
 

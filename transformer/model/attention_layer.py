@@ -25,8 +25,9 @@ class Attention(tf.layers.Layer):
   """Multi-headed attention layer."""
 
   def __init__(self, hidden_size, num_heads, attention_dropout, train):
-    assert hidden_size % num_heads == 0, (
-      "Hidden size must be evenly divisible by the number of heads.")
+    if hidden_size % num_heads != 0:
+      raise ValueError("Hidden size must be evenly divisible by the number of "
+                       "heads.")
 
     super(Attention, self).__init__()
     self.hidden_size = hidden_size
@@ -82,13 +83,18 @@ class Attention(tf.layers.Layer):
       x = tf.transpose(x, [0, 2, 1, 3])  # --> [batch, length, num_heads, depth]
       return tf.reshape(x, [batch_size, length, self.hidden_size])
 
-  def call(self, x, y, bias):
+  def call(self, x, y, bias, cache=None):
     """Apply attention mechanism to x and y.
 
     Args:
       x: a tensor with shape [batch_size, length_x, hidden_size]
       y: a tensor with shape [batch_size, length_y, hidden_size]
       bias: attention bias that will be added to the result of the dot product.
+      cache: (Used during prediction) dictionary with tensors containing results
+        of previous attentions. The dictionary must have the items:
+            {"k": tensor with shape [batch_size, i, key_channels],
+             "v": tensor with shape [batch_size, i, value_channels]}
+        where i is the current decoded length.
 
     Returns:
       Attention layer output with shape [batch_size, length_x, hidden_size]
@@ -100,6 +106,15 @@ class Attention(tf.layers.Layer):
     q = self.q_dense_layer(x)
     k = self.k_dense_layer(y)
     v = self.v_dense_layer(y)
+
+    if cache is not None:
+      # Combine cached keys and values with new keys and values.
+      k = tf.concat([cache["k"], k], axis=1)
+      v = tf.concat([cache["v"], v], axis=1)
+
+      # Update cache
+      cache["k"] = k
+      cache["v"] = v
 
     # Split q, k, v into heads.
     q = self.split_heads(q)
@@ -129,6 +144,5 @@ class Attention(tf.layers.Layer):
 class SelfAttention(Attention):
   """Multiheaded self-attention layer."""
 
-  def call(self, x, bias):
-    return super(SelfAttention, self).call(x, x, bias)
-
+  def call(self, x, bias, cache=None):
+    return super(SelfAttention, self).call(x, x, bias, cache)

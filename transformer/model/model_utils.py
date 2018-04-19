@@ -73,6 +73,7 @@ def get_decoder_self_attention_bias(length):
     decoder_bias = _NEG_INF * (1.0 - valid_locs)
   return decoder_bias
 
+
 def get_padding(x, padding_value=0):
   """Return float tensor representing the padding values in x.
 

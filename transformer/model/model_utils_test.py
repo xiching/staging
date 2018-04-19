@@ -22,11 +22,11 @@ import tensorflow as tf
 
 import model_utils
 
-
 NEG_INF = -1e9
 
 
 class ModelUtilsTest(tf.test.TestCase):
+
   def test_get_padding(self):
     x = tf.constant([[1, 0, 0, 0, 2], [3, 4, 0, 0, 0], [0, 5, 6, 0, 7]])
     padding = model_utils.get_padding(x, padding_value=0)
@@ -34,7 +34,7 @@ class ModelUtilsTest(tf.test.TestCase):
       padding = sess.run(padding)
 
     self.assertAllEqual([[0, 1, 1, 1, 0], [0, 0, 1, 1, 1], [1, 0, 0, 1, 0]],
-                         padding)
+                        padding)
 
   def test_get_padding_bias(self):
     x = tf.constant([[1, 0, 0, 0, 2], [3, 4, 0, 0, 0], [0, 5, 6, 0, 7]])

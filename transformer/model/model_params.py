@@ -16,6 +16,7 @@
 
 
 class TransformerBaseParams(object):
+  """Parameters for the base Transformer model."""
   # Input params
   batch_size = 2048  # Maximum number of tokens per batch of examples.
   max_length = 256  # Maximum number of tokens per example.
@@ -44,8 +45,14 @@ class TransformerBaseParams(object):
   optimizer_adam_beta2 = 0.997
   optimizer_adam_epsilon = 1e-09
 
+  # Default prediction params
+  extra_decode_length = 50
+  beam_size = 4
+  alpha = 0.6  # used to calculate length normalization in beam search
+
 
 class TransformerBigParams(TransformerBaseParams):
+  """Parameters for the big Transformer model."""
   batch_size = 4096
   hidden_size = 1024
   filter_size = 4096
