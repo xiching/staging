@@ -8,21 +8,23 @@ Transformer's overall structure follows the standard encoder-decoder pattern. Th
 The model also applies embeddings on the input and output tokens, and adds a constant positional encoding. The positional encoding adds information about the position of each token.
 
 ## Contents
-* [Walkthrough](#walkthrough)
-* [Benchmarks](#benchmarks)
-  * [Training times](#training-times)
-  * [Evaluation results](#evaluation-results)
-* [Detailed instructions](#detailed-instructions)
-  * [Export variables (optional)](#export-variables-optional)
-  * [Download and preprocess datasets](#download-and-preprocess-datasets)
-  * [Model training and evaluation](#model-training-and-evaluation)
-  * [Translate using the model](#translate-using-the-model)
-  * [Compute official BLEU score](#compute-official-bleu-score)
-* [Implementation overview](#implementation-overview)
-  * [Model Definition](#model-definition)
-  * [Model Estimator](#model-estimator)
-  * [Other scripts](#other-scripts)
-* [Term definitions](#term-definitions)
+  * [Contents](#contents)
+  * [Walkthrough](#walkthrough)
+  * [Benchmarks](#benchmarks)
+    * [Training times](#training-times)
+    * [Evaluation results](#evaluation-results)
+  * [Detailed instructions](#detailed-instructions)
+    * [Export variables (optional)](#export-variables-optional)
+    * [Download and preprocess datasets](#download-and-preprocess-datasets)
+    * [Model training and evaluation](#model-training-and-evaluation)
+    * [Translate using the model](#translate-using-the-model)
+    * [Compute official BLEU score](#compute-official-bleu-score)
+  * [Implementation overview](#implementation-overview)
+    * [Model Definition](#model-definition)
+    * [Model Estimator](#model-estimator)
+    * [Other scripts](#other-scripts)
+    * [Test dataset](#test-dataset)
+  * [Term definitions](#term-definitions)
 
 ## Walkthrough
 
@@ -33,16 +35,12 @@ PARAMS=big
 DATA_DIR=$HOME/transformer/data
 MODEL_DIR=$HOME/transformer/model_$PARAMS
 
-# Download dataset for computing BLEU score reported in the paper
-wget https://nlp.stanford.edu/projects/nmt/data/wmt14.en-de/newstest2014.en
-wget https://nlp.stanford.edu/projects/nmt/data/wmt14.en-de/newstest2014.de
-
 # Download training/evaluation datasets
 python data_download.py --data_dir=$DATA_DIR
 
 # Train the model for 10 epochs, and evaluate after every epoch.
 python transformer_main.py --data_dir=$DATA_DIR --model_dir=$MODEL_DIR \
-    --params=$PARAMS --bleu_source=newstest2014.en --bleu_ref=newstest2014.de
+    --params=$PARAMS --bleu_source=test_data/newstest2014.en --bleu_ref=test_data/newstest2014.de
 
 # Run during training in a separate process to get continuous updates,
 # or after training is complete.
@@ -54,8 +52,8 @@ python translate.py --data_dir=$DATA_DIR --model_dir=$MODEL_DIR \
 
 # Compute model's BLEU score using the newstest2014 dataset.
 python translate.py --data_dir=$DATA_DIR --model_dir=$MODEL_DIR \
-    --params=$PARAMS --file=newstest2014.en --file_out=translation.en
-python compute_bleu.py --translation=translation.en --reference=newstest2014.de
+    --params=$PARAMS --file=test_data/newstest2014.en --file_out=translation.en
+python compute_bleu.py --translation=translation.en --reference=test_data/newstest2014.de
 ```
 
 ## Benchmarks
@@ -74,9 +72,8 @@ Below are the case-insensitive BLEU scores after 10 epochs.
 
 Params | Score
 --- | --- |
-base | 20.5
-big | 26.1
-
+base | 27.7
+big | 28.9
 
 
 ## Detailed instructions
@@ -108,7 +105,7 @@ big | 26.1
 
 2. ### Model training and evaluation
 
-   [transformer_main.py](transformer_main.py) creates a Transformer model graph using Tensorflow Estimator, and trains it.
+   [transformer_main.py](transformer_main.py) creates a Transformer model, and trains it using Tensorflow Estimator.
 
    Command to run:
    ```
@@ -121,7 +118,7 @@ big | 26.1
    * `--params`: Parameter set to use when creating and training the model. Options are `base` and `big` (default).
    * Use the `--help` or `-h` flag to get a full list of possible arguments.
 
-   #### Training Schedule
+   #### Customizing training schedule
 
    By default, the model will train for 10 epochs, and evaluate after every epoch. The training schedule may be defined through the flags:
    * Training with epochs (default):
@@ -142,12 +139,9 @@ big | 26.1
    * `--bleu_ref`: Path to file containing the reference translation.
    * `--bleu_threshold`: Train until the BLEU score reaches this lower bound. This setting overrides the `--train_steps` and `--train_epochs` flags.
 
-   To get the newstest2014 dataset used to get the BLEU scores reported in the _Attention is All You Need_ paper, run these commands (or download directly from the URLs):
-   ```
-   wget https://nlp.stanford.edu/projects/nmt/data/wmt14.en-de/newstest2014.en
-   wget https://nlp.stanford.edu/projects/nmt/data/wmt14.en-de/newstest2014.de
-   ```
-   When running `transformer_main.py`, use the flags: `--bleu_source=newstest2014.en --bleu_ref=newstest2014.de`
+   The test source and reference files located in the `test_data` directory are extracted from the preprocessed dataset from the [NMT Seq2Seq tutorial](https://google.github.io/seq2seq/nmt/#download-data).
+
+   When running `transformer_main.py`, use the flags: `--bleu_source=test_data/newstest2014.en --bleu_ref=test_data/newstest2014.de`
 
    #### Tensorboard
    Training and evaluation metrics (loss, accuracy, approximate BLEU score, etc.) are logged, and can be displayed in the browser using Tensorboard.
@@ -171,22 +165,22 @@ big | 26.1
    Arguments for specifying what to translate:
    * `--text`: Text to translate
    * `--file`: Path to file containing text to translate
-   * `--file_out`: If `--file` is set, then this path will store the input file's translation.
+   * `--file_out`: If `--file` is set, then this file will store the input file's translations.
 
-   To translate the newstest2014 dataset, download the dataset as described [in an earlier section](#compute-bleu-score-during-model-evaluation) and run:
+   To translate the newstest2014 data, run:
    ```
    python translate.py --data_dir=$DATA_DIR --model_dir=$MODEL_DIR \
-       --params=$PARAMS --file=newstest2014.en --file_out=translation.en
+       --params=$PARAMS --file=test_data/newstest2014.en --file_out=translation.en
    ```
 
-   Translating the file takes around 15 minutes.
+   Translating the file takes around 15 minutes on a GTX1080, or 5 minutes on a P100.
 
 4. ### Compute official BLEU score
    Use [compute_bleu.py](compute_bleu.py) to compute the BLEU by comparing generated translations to the reference translation.
 
    Command to run:
    ```
-   python compute_bleu.py --translation=translation.en --reference=newstest2014.de
+   python compute_bleu.py --translation=translation.en --reference=test_data/newstest2014.de
    ```
 
    Arguments:
@@ -243,6 +237,9 @@ Translation is defined in [translate.py](translate.py). First, `Subtokenizer` to
 
 #### BLEU computation
 [compute_bleu.py](compute_bleu.py): Implementation from [https://github.com/tensorflow/tensor2tensor/blob/master/tensor2tensor/utils/bleu_hook.py](https://github.com/tensorflow/tensor2tensor/blob/master/tensor2tensor/utils/bleu_hook.py).
+
+### Test dataset
+The [newstest2014 files](test_data) are extracted from the [NMT Seq2Seq tutorial](https://google.github.io/seq2seq/nmt/#download-data). The raw text files are converted from the SGM format of the [WMT 2016](http://www.statmt.org/wmt16/translation-task.html) test sets.
 
 ## Term definitions
 

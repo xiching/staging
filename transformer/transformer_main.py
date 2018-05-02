@@ -37,7 +37,7 @@ from utils import tokenizer
 
 DEFAULT_TRAIN_EPOCHS = 10
 BLEU_DIR = "bleu"
-INF = 1e9
+INF = int(1e9)
 
 
 def model_fn(features, labels, mode, params):
@@ -256,7 +256,7 @@ def train_schedule(
     if evaluate_bleu:
       uncased_score, _ = evaluate_and_log_bleu(
           estimator, bleu_writer, bleu_source, bleu_ref)
-      if bleu_threshold is not None and uncased_score < bleu_threshold:
+      if bleu_threshold is not None and uncased_score > bleu_threshold:
         bleu_writer.close()
         break
 
